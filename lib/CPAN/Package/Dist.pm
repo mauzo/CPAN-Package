@@ -27,7 +27,7 @@ sub find {
         $distfile = "$1/$1$2/$1$2$3/$4";
     }
     else {
-        my $rs = $$conf{HTTP}->get("$$conf{metadb}/$spec");
+        my $rs = $conf->http->get("$$conf{metadb}/$spec");
         $$rs{success}  or die "can't resolve module '$spec'\n";
         
         my $meta = Parse::CPAN::Meta->load_yaml_string(
@@ -38,8 +38,8 @@ sub find {
 
     (my $dist = basename $distfile) =~ s/$Ext//
         or die "'$distfile' has an unknown extension\n";
-
-    $class->new(
+    
+    return (
         config      => $conf,
         name        => $dist,
         distfile    => $distfile,
@@ -59,7 +59,7 @@ sub fetch {
 
     make_path dirname $path;
 
-    my $rs = $$conf{HTTP}->mirror($url, $path);
+    my $rs = $conf->http->mirror($url, $path);
     unless ($$rs{success}) {
         say "!!! Fetch failed: $$rs{reason}";
         return;

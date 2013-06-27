@@ -10,24 +10,18 @@ sub new {
 }
 
 sub _set {
-    my ($self, %atts) = @_;
-    while (my ($k, $v) = each %atts) {
+    my ($self, @atts) = @_;
+    while (my ($k, $v) = splice @atts, 0, 2) {
         $self->{$k} = $v;
     }
     return $self;
 }
 
-sub _new {
-    my ($self, $class, @atts) = @_;
-    "CPAN::Package::$class"->new(
-        config  => $self->config,
-        @atts,
-    );
-}
-
 sub config {
-    @_ > 1 and return $_[0]{config}{$_[1]};
-    $_[0]{config} //= {};
+    my ($self, $key) = @_;
+    my $config = $$self{config};
+    defined $key or return $config;
+    $config->$key;
 }
 
 1;

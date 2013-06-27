@@ -57,20 +57,31 @@ cd "$dir"
 exec "$@"
 SH
 
+sub find {
+    my ($class, $config, $name) = @_;
+    return (
+        name    => $name,
+        jname   => "$name-default",
+        running => 0,
+    );
+}
+
 sub start {
     my ($self) = @_;
+
+    my $config  = $self->config;
+    my $jname   = $self->jname;
 
     $self->su("poudriere", "jail", "-sj", $self->name);
     $self->_set(running => 1);
 
-    my $jname = $self->name . "-default";
     chomp(my $root = qx/jls -j $jname path/);
-    $self->_set(jname => $jname, root => $root);
+    $self->_set(root => $root);
 
     $self->mount_tmpfs($self->hpath(""));
     mkdir $self->hpath("build");
 
-    my $pkg = $self->config("packages") . "/" . $self->jname;
+    my $pkg = "$$config{packages}/$jname";
     $self->mount_nullfs("w", $pkg, $self->hpath("pkg"));
     $self->_set(pkg => $pkg, umount => ["pkg", ""]);
 

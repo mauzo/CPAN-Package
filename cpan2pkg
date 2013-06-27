@@ -7,11 +7,13 @@ use autodie;
 
 use lib "lib";
 
+use CPAN::Package::Config;
+use CPAN::Package::Dist;
+use CPAN::Package::Jail;
+
 use Config;
 use CPAN::Meta;
 use CPAN::Meta::Requirements;
-use CPAN::Package::Dist;
-use CPAN::Package::Jail;
 use Cwd                     qw/abs_path/;
 use Data::Dump              qw/pp/;
 use Encode                  "decode";
@@ -26,22 +28,7 @@ use HTTP::Tiny;
 use Module::CoreList;
 use Parse::CPAN::Meta;
 
-my %Conf = (
-    jail        => "91R-amd64",
-    perl        => "/opt/perl/bin/perl",
-    perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
-
-    cpan        => "http://search.cpan.org/CPAN",
-    metadb      => "http://cpanmetadb.plackperl.org/v1.0/package",
-
-    dist        => abs_path("dist"),
-    packages    => abs_path("pkg"),
-
-    su          => sub { 
-        system "sudo", @_;
-    },
-    HTTP        => HTTP::Tiny->new,
-);
+my $Conf;
 
 sub read_meta {
     my ($meta, $jail, $dir) = @_;
@@ -85,12 +72,12 @@ sub configure_dist {
 
     my $make;
     if (-f $jail->hpath("$work/Build.PL")) {
-        $jail->injail($work, $Conf{perl}, "Build.PL", 
+        $jail->injail($work, $$Conf{perl}, "Build.PL", 
             "--destdir=/cpan2pkg/$dest");
         $make = "./Build";
     }
     elsif (-f $jail->hpath("$work/Makefile.PL")) {
-        $jail->injail($work, $Conf{perl}, "Makefile.PL", 
+        $jail->injail($work, $$Conf{perl}, "Makefile.PL", 
             "DESTDIR=/cpan2pkg/$dest");
         $make = $Config{make};
     }
@@ -115,16 +102,16 @@ sub fixup_install {
     my $hdest   = $jail->hpath($dest);
     my $jdest   = $jail->jpath($dest);
 
-    $Conf{su}->($^X, "-pi", "-es,\Q$jdest\E,,",
+    $$Conf{su}->($^X, "-pi", "-es,\Q$jdest\E,,",
         $FFR->file->name(".packlist")->in($hdest));
     
     # Forget perllocal.pod for now. Ideally we'd fix it up in a
     # post-install script.
-    $Conf{su}->("rm", 
+    $$Conf{su}->("rm", 
         $FFR->file->name("perllocal.pod")->in($hdest));
 
     while (my @e = $FFR->directoryempty->in($hdest)) {
-        $Conf{su}->("rmdir", @e);;
+        $$Conf{su}->("rmdir", @e);;
     }
 }
 
@@ -165,16 +152,25 @@ sub needed {
 }
 
 sub Main {
-    my $jail = CPAN::Package::Jail->new(
-        name    => $Conf{jail},
-        config  => \%Conf,
+    $Conf = CPAN::Package::Config->new(
+        perl        => "/opt/perl/bin/perl",
+        perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
+
+        dist        => abs_path("dist"),
+        packages    => abs_path("pkg"),
+
+        su          => sub { 
+            system "sudo", @_;
+        },
     );
+
+    my $jail = $Conf->find(Jail => "91R-amd64");
 
     $jail->start;
     $jail->add_initial_pkgs;
 
     for my $mod (@_) {
-        my $disto           = CPAN::Package::Dist->find(\%Conf, $mod);
+        my $disto           = $Conf->find(Dist => $mod);
         my $dist            = $disto->name;
         my $tar             = $disto->fetch;
         my $work            = unpack_dist $jail, $dist, $tar;
