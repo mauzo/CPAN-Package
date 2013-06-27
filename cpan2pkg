@@ -10,6 +10,7 @@ use lib "lib";
 use Config;
 use CPAN::Meta;
 use CPAN::Meta::Requirements;
+use CPAN::Package::Dist;
 use CPAN::Package::Jail;
 use Cwd                     qw/abs_path/;
 use Data::Dump              qw/pp/;
@@ -29,63 +30,18 @@ my %Conf = (
     jail        => "91R-amd64",
     perl        => "/opt/perl/bin/perl",
     perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
+
     cpan        => "http://search.cpan.org/CPAN",
     metadb      => "http://cpanmetadb.plackperl.org/v1.0/package",
+
     dist        => abs_path("dist"),
     packages    => abs_path("pkg"),
+
     su          => sub { 
         system "sudo", @_;
     },
+    HTTP        => HTTP::Tiny->new,
 );
-
-my $Ext     = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
-
-my $HTTP = HTTP::Tiny->new;
-my $Cwd;
-
-sub find_dist {
-    my ($spec) = @_;
-
-    my $distfile;
-    if ($spec =~ m!^([A-Z])([A-Z])([A-Z]+)/(.*)!) {
-        $distfile = "$1/$1$2/$1$2$3/$4";
-    }
-    else {
-        my $rs = $HTTP->get("$Conf{metadb}/$spec");
-        $$rs{success}  or die "can't resolve module '$spec'\n";
-        
-        my $meta = Parse::CPAN::Meta->load_yaml_string(
-            decode "utf8", $$rs{content}
-        )               or die "can't parse meta for '$spec'\n";
-        $distfile = $$meta{distfile};
-    }
-
-    (my $dist = basename $distfile) =~ s/$Ext//
-        or die "'$distfile' has an unknown extension\n";
-
-    return $dist, $distfile;
-}
-
-sub fetch_dist {
-    my ($dist) = @_;
-
-    -d $Conf{dist} or make_path $Conf{dist} 
-        or die "can't create distdir '$Conf{dist}'\n";
-
-    my $file    = basename $dist;
-    my $path    = "$Conf{dist}/$file";
-    my $url     = "$Conf{cpan}/authors/id/$dist";
-
-    say "==> Fetching $dist";
-
-    my $rs = $HTTP->mirror($url, $path);
-    unless ($$rs{success}) {
-        say "!!! Fetch failed: $$rs{reason}";
-        return;
-    }
-
-    return $path;
-}
 
 sub read_meta {
     my ($meta, $jail, $dir) = @_;
@@ -209,8 +165,6 @@ sub needed {
 }
 
 sub Main {
-    open $Cwd, "<", "." or die "can't open cwd: $!";
-
     my $jail = CPAN::Package::Jail->new(
         name    => $Conf{jail},
         config  => \%Conf,
@@ -220,8 +174,9 @@ sub Main {
     $jail->add_initial_pkgs;
 
     for my $mod (@_) {
-        my ($dist, $file)   = find_dist $mod;
-        my $tar             = fetch_dist $file;
+        my $disto           = CPAN::Package::Dist->find(\%Conf, $mod);
+        my $dist            = $disto->name;
+        my $tar             = $disto->fetch;
         my $work            = unpack_dist $jail, $dist, $tar;
 
         my $meta            = read_meta "META", $jail, $work;

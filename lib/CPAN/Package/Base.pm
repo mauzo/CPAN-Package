@@ -26,7 +26,7 @@ sub _new {
 }
 
 sub config {
-    @_ and return $_[0]{config}{$_[1]};
+    @_ > 1 and return $_[0]{config}{$_[1]};
     $_[0]{config} //= {};
 }
 
