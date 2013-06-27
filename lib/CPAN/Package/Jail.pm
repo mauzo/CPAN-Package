@@ -10,7 +10,7 @@ use parent "CPAN::Package::Base";
 use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
 
-for my $m (qw/name jname root/) {
+for my $m (qw/name jname root running/) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
@@ -61,6 +61,8 @@ sub start {
     my ($self) = @_;
 
     $self->su("poudriere", "jail", "-sj", $self->name);
+    $self->_set(running => 1);
+
     my $jname = $self->name . "-default";
     chomp(my $root = qx/jls -j $jname path/);
     $self->_set(jname => $jname, root => $root);
@@ -99,6 +101,12 @@ sub stop {
         $self->su("umount", $_);
     }
     $self->su("poudriere", "jail", "-kj", $self->name);
+    $self->_set(running => 0);
+}
+
+sub DESTROY {
+    my ($self) = @_;
+    $self->running and $self->stop;
 }
 
 1;
