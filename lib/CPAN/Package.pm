@@ -7,8 +7,8 @@ use strict;
 our $VERSION = "1";
 
 use Carp;
+use Class::Load     qw/load_class/;
 use HTTP::Tiny;
-use Module::Load    qw/load/;
 use Scalar::Util    qw/blessed/;
 
 for my $a (qw/ 
@@ -35,11 +35,8 @@ sub new {
 sub find {
     my ($self, $type, @args) = @_;
 
-    my $root = blessed $self
-        or croak "->find is an object method";
     my $class = "CPAN::Package::$type";
-    load $class;
-    $class->new(
+    load_class($class)->new(
         config  => $self,
         $class->find($self, @args),
     );
@@ -48,9 +45,7 @@ sub find {
 sub build_for {
     my ($self, $jail, $dist) = @_;
 
-    my $class = "CPAN::Package::Build";
-    load $class;
-    $class->new(
+    load_class("CPAN::Package::Build")->new(
         config  => $self,
         jail    => $jail,
         dist    => $dist,
