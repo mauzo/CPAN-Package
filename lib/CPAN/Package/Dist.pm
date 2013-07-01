@@ -14,7 +14,7 @@ use Parse::CPAN::Meta;
 
 my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
 
-for my $m (qw/name distfile path/) {
+for my $m (qw/name distfile tar/) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
@@ -65,7 +65,7 @@ sub fetch {
         return;
     }
 
-    $self->_set(path => $path);
+    $self->_set(tar => $path);
     return $path;
 }
 

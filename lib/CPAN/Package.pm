@@ -45,4 +45,16 @@ sub find {
     );
 }
 
+sub build_for {
+    my ($self, $jail, $dist) = @_;
+
+    my $class = "CPAN::Package::Build";
+    load $class;
+    $class->new(
+        config  => $self,
+        jail    => $jail,
+        dist    => $dist,
+    );
+}
+
 1;

@@ -5,200 +5,54 @@ use warnings;
 use strict;
 use autodie;
 
-use lib "lib";
-
-use Config;
-use CPAN::Meta;
-use CPAN::Meta::Requirements;
 use CPAN::Package;
-use Cwd                     qw/abs_path/;
-use Data::Dump              qw/pp/;
-use Encode                  "decode";
-use File::Basename          qw/basename dirname/;
-use File::Find::Rule;
-use File::Find::Rule::DirectoryEmpty;
-use File::Path              qw"make_path";
-use File::Slurp             qw/read_dir write_file/;
-use File::Spec::Functions   qw/abs2rel/;
-use File::Temp              qw/tempdir/;
-use HTTP::Tiny;
-use Module::CoreList;
-use Parse::CPAN::Meta;
+use Cwd             qw/abs_path/;
 
-my $Conf;
+my $Conf = CPAN::Package->new(
+    perl        => "/opt/perl/bin/perl",
+    perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
 
-sub read_meta {
-    my ($meta, $jail, $dir) = @_;
+    dist        => abs_path("dist"),
+    packages    => abs_path("pkg"),
 
-    for (map $jail->hpath("$dir/$meta.$_"), qw/json yml/) {
-        -r or next;
-        say "===> Reading metadata from $_";
-        return CPAN::Meta->load_file($_);
-    }
-    return;
-}
-
-sub unpack_dist {
-    my ($jail, $dist, $tar) = @_;
-
-    my $work = tempdir "$dist~XXXX", DIR => $jail->hpath("build")
-        or die "can't create build directory";
-
-    say "==> Unpacking $dist";
-
-    # libarchive++
-    system "tar", "-xf", $tar, "-C", $work;
-
-    my @contents = read_dir $work;
-    my $src = "$work/$contents[0]";
-    @contents != 1 || ! -d $src
-        and die "$tar does not unpack into a single directory\n";
-
-    mkdir "$work/tmproot";
-
-    return abs2rel $src, $jail->hpath("");
-}
-
-sub configure_dist {
-    my ($jail, $dist, $work) = @_;
-
-    say "==> Configuring $dist";
-
-    my $dest = dirname($work) . "/tmproot";
-    say "===> Using dest [$dest]";
-
-    my $make;
-    if (-f $jail->hpath("$work/Build.PL")) {
-        $jail->injail($work, $$Conf{perl}, "Build.PL", 
-            "--destdir=/cpan2pkg/$dest");
-        $make = "./Build";
-    }
-    elsif (-f $jail->hpath("$work/Makefile.PL")) {
-        $jail->injail($work, $$Conf{perl}, "Makefile.PL", 
-            "DESTDIR=/cpan2pkg/$dest");
-        $make = $Config{make};
-    }
-    else {
-        die "Don't know how to configure $dist\n";
-    }
-
-    return ($make, $dest);
-}
-
-sub make_dist {
-    my ($jail, $dist, $work, $make, $target) = @_;
-
-    say "==> \u${target}ing $dist";
-    $jail->injail($work, $make, ($target eq "build" ? () : $target));
-}
-
-sub fixup_install {
-    my ($jail, $dist, $dest) = @_;
-
-    my $FFR     = "File::Find::Rule";
-    my $hdest   = $jail->hpath($dest);
-    my $jdest   = $jail->jpath($dest);
-
-    $$Conf{su}->($^X, "-pi", "-es,\Q$jdest\E,,",
-        $FFR->file->name(".packlist")->in($hdest));
-    
-    # Forget perllocal.pod for now. Ideally we'd fix it up in a
-    # post-install script.
-    $$Conf{su}->("rm", 
-        $FFR->file->name("perllocal.pod")->in($hdest));
-
-    while (my @e = $FFR->directoryempty->in($hdest)) {
-        $$Conf{su}->("rmdir", @e);;
-    }
-}
-
-sub in_core {
-    my ($perl, $mod) = @_;
-    my $mods = $Module::CoreList::version{$perl};
-    exists $$mods{$mod} and $$mods{$mod} // "0";
-}
-
-my %Phases = (
-    configure   => [qw/configure/],
-    build       => [qw/configure runtime build/],
-    test        => [qw/configure runtime build test/],
-    install     => [qw/runtime/],
+    su          => sub { 
+        system "sudo", @_;
+    },
 );
 
-sub needed {
-    my ($dist, $phase, $meta) = @_;
+my $jail = $Conf->find(Jail => "91R-amd64");
 
-    my $prereq = $meta->effective_prereqs;
-    my $req = CPAN::Meta::Requirements->new;
-    $req->add_requirements($prereq->requirements_for($_, "requires"))
-        for @{$Phases{$phase}};
+$jail->start;
+$jail->add_initial_pkgs;
 
-    my %mods;
-    for my $m ($req->required_modules) {
-        my $core = in_core $], $m;
-#        say sprintf "===> Testing %s (%s) against %s",
-#            $m, $core, $req->requirements_for_module($m);
-        my $state =
-            $core && $req->accepts_module($m, $core)    ? "core"    :
-            "needed";
-        say "===> Dep ($phase): $m [$state]";
-        push @{$mods{$state}}, $m;
+for my $mod (@ARGV) {
+    my $dist        = $Conf->find(Dist => $mod);
+    $dist->fetch;
+
+    my $build       = $Conf->build_for($jail, $dist);
+    $build->unpack_dist;
+    $build->read_meta("META");
+
+    my $req         = $build->needed("configure");
+    for (@{ $$req{needed} }) {
+        say "===> INSTALL [$_]";
     }
 
-    return \%mods;
-}
+    $build->configure_dist;
+    $build->read_meta("MYMETA");
 
-sub Main {
-    $Conf = CPAN::Package->new(
-        perl        => "/opt/perl/bin/perl",
-        perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
-
-        dist        => abs_path("dist"),
-        packages    => abs_path("pkg"),
-
-        su          => sub { 
-            system "sudo", @_;
-        },
-    );
-
-    my $jail = $Conf->find(Jail => "91R-amd64");
-
-    $jail->start;
-    $jail->add_initial_pkgs;
-
-    for my $mod (@_) {
-        my $disto           = $Conf->find(Dist => $mod);
-        my $dist            = $disto->name;
-        my $tar             = $disto->fetch;
-        my $work            = unpack_dist $jail, $dist, $tar;
-
-        my $meta            = read_meta "META", $jail, $work;
-        my $req             = needed $dist, "configure", $meta;
-        for (@{ $$req{needed} }) {
-            say "===> INSTALL [$_]";
-        }
-
-        my ($make, $dest)   = configure_dist $jail, $dist, $work;
-
-        my $mymeta          = read_meta "MYMETA", $jail, $work;
-        $meta               = $mymeta // $meta;
-        $req                = needed $dist, "build", $meta;
-        for (@{ $$req{needed} }) {
-            say "===> INSTALL [$_]";
-        }
-
-        make_dist $jail, $dist, $work, $make, "build";
-        make_dist $jail, $dist, $work, $make, "test";
-        make_dist $jail, $dist, $work, $make, "install";
-
-        fixup_install $jail, $dist, $dest;
-
-        $jail->injail($dest, "find", ".");
-        $jail->injail($dest, "sh", "-c",
-            "find . -name .packlist | xargs cat");
+    $req            = $build->needed("build");
+    for (@{ $$req{needed} }) {
+        say "===> INSTALL [$_]";
     }
 
-    $jail->stop;
+    $build->make_dist($_) for qw/build test install/;
+    $build->fixup_install;
+
+    my $dest        = $build->destdir;
+    $jail->injail($dest, "find", ".");
+    $jail->injail($dest, "sh", "-c",
+        "find . -name .packlist | xargs cat");
 }
 
-Main @ARGV;
+$jail->stop;
