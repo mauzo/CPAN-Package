@@ -7,13 +7,10 @@ use autodie;
 
 use lib "lib";
 
-use CPAN::Package::Config;
-use CPAN::Package::Dist;
-use CPAN::Package::Jail;
-
 use Config;
 use CPAN::Meta;
 use CPAN::Meta::Requirements;
+use CPAN::Package;
 use Cwd                     qw/abs_path/;
 use Data::Dump              qw/pp/;
 use Encode                  "decode";
@@ -152,7 +149,7 @@ sub needed {
 }
 
 sub Main {
-    $Conf = CPAN::Package::Config->new(
+    $Conf = CPAN::Package->new(
         perl        => "/opt/perl/bin/perl",
         perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
 
