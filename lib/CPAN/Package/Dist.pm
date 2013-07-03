@@ -8,13 +8,13 @@ use autodie;
 use parent "CPAN::Package::Base";
 
 use Encode              qw/decode/;
-use File::Basename      qw/basename dirname/;
+use File::Basename      qw/dirname/;
 use File::Path          qw/make_path/;
 use Parse::CPAN::Meta;
 
 my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
 
-for my $m (qw/name distfile tar/) {
+for my $m (qw/name version distfile tar/) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
@@ -36,12 +36,14 @@ sub find {
         $distfile = $$meta{distfile};
     }
 
-    (my $dist = basename $distfile) =~ s/$Ext//
-        or die "'$distfile' has an unknown extension\n";
+    my ($name, $version) = $distfile =~
+            m!^ .*/ ([-A-Za-z0-9_+]+) - ([^-]+) $Ext $!x
+        or die "Can't parse distfile name '$distfile'\n";
     
     return (
         config      => $conf,
-        name        => $dist,
+        name        => $name,
+        version     => $version,
         distfile    => $distfile,
     );
 }

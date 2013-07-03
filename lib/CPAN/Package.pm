@@ -12,7 +12,7 @@ use HTTP::Tiny;
 use Scalar::Util    qw/blessed/;
 
 for my $a (qw/ 
-    jail perl
+    jail perl prefix builtby
     cpan metadb dist packages
     su http
 /) {

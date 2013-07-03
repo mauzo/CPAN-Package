@@ -9,7 +9,10 @@ use CPAN::Package;
 use Cwd             qw/abs_path/;
 
 my $Conf = CPAN::Package->new(
+    builtby     => "ben\@morrow.me.uk",
+
     perl        => "/opt/perl/bin/perl",
+    prefix      => "/opt/perl",
     initpkgs    => [ 
         map "/packages/All/$_.txz", qw[
             pkg-1.1.3_1

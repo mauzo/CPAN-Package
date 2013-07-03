@@ -80,9 +80,9 @@ sub unpack_dist {
     my $jail = $self->jail;
     my $dist = $self->dist->name;
 
-    my $work    = tempdir "$dist~XXXX", DIR => $jail->hpath("build")
-        or die "can't create build directory";
-    my $wrkdir  = abs2rel $work, $jail->hpath("");
+    my $wrkdir  = "build/$dist";
+    my $work    = $jail->hpath($wrkdir);
+    mkdir $work;
     $self->_set(wrkdir => $wrkdir);
 
     say "==> Unpacking $dist";
