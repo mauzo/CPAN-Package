@@ -55,10 +55,7 @@ for my $mod (@ARGV) {
     $build->make_dist($_) for qw/build test install/;
     $build->fixup_install;
 
-    my $dest        = $build->destdir;
-    $jail->injail($dest, "find", ".");
-    $jail->injail($dest, "sh", "-c",
-        "find . -name .packlist | xargs cat");
+    $pkg->create_pkg($build);
 }
 
 $jail->injail("", $ENV{SHELL});
