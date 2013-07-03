@@ -66,6 +66,7 @@ sub fetch {
         say "!!! Fetch failed: $$rs{reason}";
         return;
     }
+    $$rs{status} == 304 and say "===> Already fetched";
 
     $self->_set(tar => $path);
     return $path;
