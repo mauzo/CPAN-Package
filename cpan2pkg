@@ -64,6 +64,12 @@ for my $mod (@ARGV) {
     $build->fixup_install;
 
     $pkg->create_pkg($build);
+
+    my $mods        = $build->provides;
+    my $name        = $dist->name;
+    say "===> $name provides:";
+    say "====> $_ $$mods{$_}{version}"
+        for keys %$mods;
 }
 
 $jail->injail("", $ENV{SHELL});

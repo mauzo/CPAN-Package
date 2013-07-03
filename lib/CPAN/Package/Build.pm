@@ -17,6 +17,7 @@ use File::Slurp             qw/read_dir/;
 use File::Spec::Functions   qw/abs2rel/;
 use File::Temp              qw/tempdir/;
 use Module::CoreList;
+use Module::Metadata;
 
 for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     no strict "refs";
@@ -164,6 +165,15 @@ sub fixup_install {
     while (my @e = $FFR->directoryempty->in($hdest)) {
         $su->("rmdir", @e);;
     }
+}
+
+sub provides {
+    my ($self) = @_;
+    Module::Metadata->provides(
+        dir     => $self->jail->hpath($self->destdir),
+        prefix  => "",
+        version => 2,
+    );
 }
 
 1;
