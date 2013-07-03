@@ -117,11 +117,17 @@ sub configure_dist {
     my $perl    = $self->config("perl");
 
     if (-f $jail->hpath("$work/Build.PL")) {
-        $jail->injail($work, $perl, "Build.PL", "--destdir=$dest");
+        $jail->injail($work, $perl, "Build.PL", 
+            "--destdir", $dest,
+            "--installdirs", "site",
+        );
         $self->_set(make => "./Build");
     }
     elsif (-f $jail->hpath("$work/Makefile.PL")) {
-        $jail->injail($work, $perl, "Makefile.PL", "DESTDIR=$dest");
+        $jail->injail($work, $perl, "Makefile.PL", 
+            "DESTDIR=$dest",
+            "INSTALLDIRS=site",
+        );
         $self->_set(make => $Config{make});
     }
     else {
