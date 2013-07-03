@@ -10,7 +10,12 @@ use Cwd             qw/abs_path/;
 
 my $Conf = CPAN::Package->new(
     perl        => "/opt/perl/bin/perl",
-    perlpkg     => "/packages/All/opt-perl-5.16.3.txz",
+    initpkgs    => [ 
+        map "/packages/All/$_.txz", qw[
+            pkg-1.1.3_1
+            opt-perl-5.16.3
+            mksh-r46
+    ]],
 
     dist        => abs_path("dist"),
     packages    => abs_path("pkg"),
@@ -20,10 +25,11 @@ my $Conf = CPAN::Package->new(
     },
 );
 
-my $jail = $Conf->find(Jail => "91R-amd64");
+my $jail    = $Conf->find(Jail => "91R-amd64");
+my $pkg     = $jail->pkgtool;
 
 $jail->start;
-$jail->add_initial_pkgs;
+$pkg->install_pkgs($Conf->initpkgs);
 
 for my $mod (@ARGV) {
     my $dist        = $Conf->find(Dist => $mod);
@@ -54,5 +60,7 @@ for my $mod (@ARGV) {
     $jail->injail($dest, "sh", "-c",
         "find . -name .packlist | xargs cat");
 }
+
+$jail->injail("", $ENV{SHELL});
 
 $jail->stop;

@@ -10,7 +10,7 @@ use parent "CPAN::Package::Base";
 use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
 
-for my $m (qw/name jname root running/) {
+for my $m (qw/ name jname root running /) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
@@ -87,6 +87,8 @@ sub start {
 
     write_file $self->hpath("injail"), $self->_injail_sh;
 
+    $self->pkgtool->setup_jail;
+
     return $self;
 }
 
@@ -97,12 +99,10 @@ sub injail {
         @cmd);
 }
 
-sub add_initial_pkgs {
+sub pkgtool {
     my ($self) = @_;
 
-    $self->injail(".", "tar", "-xvf", "/packages/Latest/pkg.txz", 
-        "-s,/.*/,,", "*/pkg-static");
-    $self->injail(".", "./pkg-static", "add", $self->config("perlpkg"));
+    $self->{pkgtool} //= $self->config->pkg_tool($self);
 }
 
 sub stop {
