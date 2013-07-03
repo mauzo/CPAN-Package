@@ -8,6 +8,11 @@ use autodie;
 use CPAN::Package;
 use Cwd             qw/abs_path/;
 
+$SIG{INT} = sub {
+    warn "Interrupt, exiting\n";
+    exit 0;
+};
+
 my $Conf = CPAN::Package->new(
     builtby     => "ben\@morrow.me.uk",
 
