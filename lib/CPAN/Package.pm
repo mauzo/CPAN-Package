@@ -13,7 +13,7 @@ use Scalar::Util    qw/blessed/;
 
 for my $a (qw/ 
     jail perl prefix builtby
-    cpan metadb dist packages
+    cpan metadb dist packages pkgdb
     su http
 /) {
     no strict "refs";

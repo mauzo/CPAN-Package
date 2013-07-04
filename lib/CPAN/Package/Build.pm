@@ -41,12 +41,6 @@ sub read_meta {
     return;
 }
 
-sub in_core {
-    my ($perl, $mod) = @_;
-    my $mods = $Module::CoreList::version{$perl};
-    exists $$mods{$mod} and $$mods{$mod} // "0";
-}
-
 my %Phases = (
     configure   => [qw/configure/],
     build       => [qw/configure runtime build/],
@@ -57,6 +51,8 @@ my %Phases = (
 sub needed {
     my ($self, $phase) = @_;
 
+    my $pkgdb   = $self->jail->pkgdb;
+
     my $prereq  = $self->meta->effective_prereqs;
     my $req = CPAN::Meta::Requirements->new;
     $req->add_requirements($prereq->requirements_for($_, "requires"))
@@ -64,11 +60,17 @@ sub needed {
 
     my %mods;
     for my $m ($req->required_modules) {
-        my $core = in_core $], $m;
-        my $state =
-            $core && $req->accepts_module($m, $core)    ? "core"    :
-            "needed";
-        say "===> Dep ($phase): $m [$state]";
+        my $dists = $pkgdb->find_module($m);
+
+        my $state = "needed";
+        for my $d (@$dists) {
+            $req->accepts_module($m, $$d{modver}) or next;
+            $state = $$d{type};
+            last;
+        }
+
+        my $ver = $req->requirements_for_module($m);
+        say "===> Dep ($phase): $m $ver [$state]";
         push @{$mods{$state}}, $m;
     }
 

@@ -27,6 +27,7 @@ my $Conf = CPAN::Package->new(
 
     dist        => abs_path("dist"),
     packages    => abs_path("pkg"),
+    pkgdb       => abs_path("pkgdb"),
 
     su          => sub { 
         system "sudo", @_;
@@ -35,6 +36,7 @@ my $Conf = CPAN::Package->new(
 
 my $jail    = $Conf->find(Jail => "91R-amd64");
 my $pkg     = $jail->pkgtool;
+my $pkgdb   = $jail->pkgdb;
 
 $jail->start;
 $pkg->install_pkgs($Conf->initpkgs);
@@ -48,16 +50,18 @@ for my $mod (@ARGV) {
     $build->read_meta("META");
 
     my $req         = $build->needed("configure");
-    for (@{ $$req{needed} }) {
-        say "===> INSTALL [$_]";
+    if ($$req{needed} or $$req{pkg}) {
+        say "==> Unsatisfied deps";
+        next;
     }
 
     $build->configure_dist;
     $build->read_meta("MYMETA");
 
     $req            = $build->needed("build");
-    for (@{ $$req{needed} }) {
-        say "===> INSTALL [$_]";
+    if ($$req{needed} or $$req{pkg}) {
+        say "Unsatisfied deps";
+        next;
     }
 
     $build->make_dist($_) for qw/build test install/;
@@ -66,10 +70,7 @@ for my $mod (@ARGV) {
     $pkg->create_pkg($build);
 
     my $mods        = $build->provides;
-    my $name        = $dist->name;
-    say "===> $name provides:";
-    say "====> $_ $$mods{$_}{version}"
-        for keys %$mods;
+    $pkgdb->register_dist($dist, $mods);
 }
 
 $jail->injail("", $ENV{SHELL});

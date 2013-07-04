@@ -101,8 +101,12 @@ sub injail {
 
 sub pkgtool {
     my ($self) = @_;
-
     $self->{pkgtool} //= $self->config->pkg_tool($self);
+}
+
+sub pkgdb {
+    my ($self) = @_;
+    $self->{pkgdb} //= $self->config->find(PkgDB => $self);
 }
 
 sub stop {
