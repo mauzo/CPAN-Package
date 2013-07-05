@@ -16,7 +16,7 @@ use File::Find::Rule::DirectoryEmpty;
 use File::Slurp             qw/read_dir/;
 use File::Spec::Functions   qw/abs2rel/;
 use File::Temp              qw/tempdir/;
-use Module::CoreList;
+use List::Util              qw/first/;
 use Module::Metadata;
 
 for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
@@ -61,20 +61,45 @@ sub needed {
     my %mods;
     for my $m ($req->required_modules) {
         my $dists = $pkgdb->find_module($m);
+        my $d = first {
+            $req->accepts_module($m, $$_{modver})
+        } @$dists;
 
-        my $state = "needed";
-        for my $d (@$dists) {
-            $req->accepts_module($m, $$d{modver}) or next;
-            $state = $$d{type};
-            last;
-        }
+        $d //= {
+            module  => $m,
+            type    => "needed",
+        };
+
+        my $state = $$d{type};
+        push @{$mods{$state}}, $d;
 
         my $ver = $req->requirements_for_module($m);
         say "===> Dep ($phase): $m $ver [$state]";
-        push @{$mods{$state}}, $m;
     }
 
     return \%mods;
+}
+
+sub satisfy_reqs {
+    my ($self, $phase) = @_;
+
+    my $pkgtool = $self->jail->pkgtool;
+
+    my $req = $self->needed($phase);
+    for my $d (@{$$req{pkg}}) {
+        my $pkg = "cpan2pkg-$$d{dist}-$$d{distver}";
+        say "===> Install package $pkg";
+        $pkgtool->install_pkgs("/cpan2pkg/pkg/$pkg.txz");
+    }
+    for my $m (@{$$req{needed}}) {
+        say "===> NEEDED [$$m{module}]";
+    }
+    if (@{$$req{needed}}) {
+        say "==> Unsatisfied deps";
+        return;
+    }
+
+    return 1;
 }
 
 sub unpack_dist {

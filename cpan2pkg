@@ -49,21 +49,11 @@ for my $mod (@ARGV) {
     $build->unpack_dist;
     $build->read_meta("META");
 
-    my $req         = $build->needed("configure");
-    if ($$req{needed} or $$req{pkg}) {
-        say "==> Unsatisfied deps";
-        next;
-    }
-
+    $build->satisfy_reqs("configure") or next;
     $build->configure_dist;
     $build->read_meta("MYMETA");
 
-    $req            = $build->needed("build");
-    if ($$req{needed} or $$req{pkg}) {
-        say "Unsatisfied deps";
-        next;
-    }
-
+    $build->satisfy_reqs("build") or next;
     $build->make_dist($_) for qw/build install/;
     $build->fixup_install;
 
