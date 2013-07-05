@@ -186,7 +186,7 @@ sub fixup_install {
     
     # Forget perllocal.pod for now. Ideally we'd fix it up in a
     # post-install script.
-    $su->("rm", 
+    $su->("rm", "-f",
         $FFR->file->name("perllocal.pod")->in($hdest));
 
     while (my @e = $FFR->directoryempty->in($hdest)) {
