@@ -16,6 +16,14 @@ for my $s (qw/ jail /) {
     *$s = sub { $_[0]{$s} };
 }
 
+sub BUILDARGS {
+    my ($class, $config, $jail) = @_;
+    return {
+        config  => $config,
+        jail    => $jail,
+    };
+}
+
 sub setup_jail {
     my ($self) = @_;
 

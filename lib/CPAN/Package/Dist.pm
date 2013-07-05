@@ -19,7 +19,7 @@ for my $m (qw/name version distfile tar/) {
     *$m = sub { $_[0]{$m} };
 }
 
-sub find {
+sub BUILDARGS {
     my ($class, $conf, $spec) = @_;
 
     my $distfile;
@@ -40,12 +40,12 @@ sub find {
             m!^ .*/ ([-A-Za-z0-9_+]+) - ([^-]+) $Ext $!x
         or die "Can't parse distfile name '$distfile'\n";
     
-    return (
+    return {
         config      => $conf,
         name        => $name,
         version     => $version,
         distfile    => $distfile,
-    );
+    };
 }
 
 sub fetch {

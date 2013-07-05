@@ -37,37 +37,10 @@ sub new {
     bless \%conf, $class;
 }
 
-sub new_obj {
+sub find {
     my ($self, $class, @args) = @_;
 
-    load_class("CPAN::Package::$class")->new(
-        config  => $self,
-        @args,
-    );
-}
-
-sub find {
-    my ($self, $type, @args) = @_;
-
-    my $class = load_class("CPAN::Package::$type");
-    $self->new_obj($type, $class->find($self, @args));
-}
-
-sub build_for {
-    my ($self, $jail, $dist) = @_;
-
-    $self->new_obj("Build",
-        jail    => $jail,
-        dist    => $dist,
-    );
-}
-
-sub pkg_tool {
-    my ($self, $jail) = @_;
-
-    $self->new_obj("PkgTool",
-        jail    => $jail,
-    );
+    load_class("CPAN::Package::$class")->new($self, @args);
 }
 
 1;

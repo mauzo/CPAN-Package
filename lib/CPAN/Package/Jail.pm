@@ -57,13 +57,15 @@ cd "$dir"
 exec "$@"
 SH
 
-sub find {
+sub BUILDARGS {
     my ($class, $config, $name) = @_;
-    return (
+
+    return {
+        config  => $config,
         name    => $name,
         jname   => "$name-default",
         running => 0,
-    );
+    };
 }
 
 sub start {
@@ -101,7 +103,7 @@ sub injail {
 
 sub pkgtool {
     my ($self) = @_;
-    $self->{pkgtool} //= $self->config->pkg_tool($self);
+    $self->{pkgtool} //= $self->config->find(PkgTool => $self);
 }
 
 sub pkgdb {

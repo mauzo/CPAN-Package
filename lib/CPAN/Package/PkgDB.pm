@@ -15,11 +15,20 @@ for my $s (qw/ dbh jail /) {
     *$s = sub { $_[0]{$s} };
 }
 
-sub find {
+sub BUILDARGS {
     my ($class, $config, $jail) = @_;
 
-    my $pkgdb   = $config->pkgdb;
-    my $jname   = $jail->jname;
+    return {
+        config  => $config,
+        jail    => $jail,
+    };
+}
+
+sub BUILD {
+    my ($self) = @_;
+
+    my $pkgdb   = $self->config->pkgdb;
+    my $jname   = $self->jail->jname;
 
     my $dbh     = DBI->connect(
         "dbi:SQLite:$pkgdb/$jname", undef, undef, { 
@@ -27,20 +36,18 @@ sub find {
             RaiseError  => 1,
         },
     );
+    $self->_set(dbh => $dbh);
 
     my $dbver = eval {
         $dbh->selectrow_array("select version from pkgdb")
     } // 0;
-    $dbver == $DBVER or $class->setup_db($dbh);
-
-    return (
-        jail    => $jail,
-        dbh     => $dbh,
-    );
+    $dbver == $DBVER or $self->setup_db;
 }
 
 sub _create_tables {
-    my ($self, $dbh) = @_;
+    my ($self) = @_;
+
+    my $dbh = $self->dbh;
 
     # INTEGER PRIMARY KEY is SQLitish for 'serial' (or rather 'oid')...
     $dbh->do($_) for split /;/, <<SQL;
@@ -65,7 +72,9 @@ SQL
 }
 
 sub _register_core {
-    my ($self, $dbh, $perlver) = @_;
+    my ($self, $perlver) = @_;
+
+    my $dbh = $self->dbh;
 
     $dbh->do(<<SQL, undef, $perlver);
         insert into dist (name, version, type)
@@ -90,13 +99,15 @@ SQL
 }
 
 sub setup_db {
-    my ($self, $dbh) = @_;
+    my ($self) = @_;
+
+    my $dbh = $self->dbh;
 
     say "===> Creating pkgdb";
     $dbh->begin_work;
 
-    $self->_create_tables($dbh);
-    $self->_register_core($dbh, $]);
+    $self->_create_tables;
+    $self->_register_core($]);
 
     $dbh->do(
         "insert into pkgdb (version) values (?)", 

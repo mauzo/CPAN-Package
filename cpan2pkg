@@ -45,7 +45,7 @@ for my $mod (@ARGV) {
     my $dist        = $Conf->find(Dist => $mod);
     $dist->fetch;
 
-    my $build       = $Conf->build_for($jail, $dist);
+    my $build       = $Conf->find(Build => $jail, $dist);
     $build->unpack_dist;
     $build->read_meta("META");
 

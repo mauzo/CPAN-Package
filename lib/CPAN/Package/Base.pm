@@ -5,9 +5,23 @@ use warnings;
 use strict;
 
 sub new {
-    my ($class, %atts) = @_;
-    bless \%atts, $class;
+    my ($class, @args) = @_;
+    my $self = $class->BUILDARGS(@args);
+    bless $self, $class;
+    $self->BUILD;
+    $self;
 }
+
+# all these classes take a CPAN::Package first argument
+sub BUILDARGS { 
+    my ($class, $config, @args) = @_;
+    return { 
+        config => $_[1],
+        @args,
+    };
+}
+
+sub BUILD { }
 
 sub _set {
     my ($self, @atts) = @_;

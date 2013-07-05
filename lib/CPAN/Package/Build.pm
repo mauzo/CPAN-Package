@@ -24,6 +24,15 @@ for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     *$m = sub { $_[0]{$m} };
 }
 
+sub BUILDARGS {
+    my ($class, $config, $jail, $dist) = @_;
+    return {
+        config  => $config,
+        jail    => $jail,
+        dist    => $dist,
+    };
+}
+
 sub read_meta {
     my ($self, $file) = @_;
 
