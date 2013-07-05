@@ -64,7 +64,7 @@ for my $mod (@ARGV) {
         next;
     }
 
-    $build->make_dist($_) for qw/build test install/;
+    $build->make_dist($_) for qw/build install/;
     $build->fixup_install;
 
     $pkg->create_pkg($build);
