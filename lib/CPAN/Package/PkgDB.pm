@@ -6,11 +6,15 @@ use strict;
 
 use parent "CPAN::Package::Base";
 
+use Carp;
 use DBI;
 
+# echo -n CPAN::Package | cksum
+# SQLite claims this is 32bit, but it's actually 31bit...
+my $APPID   = 323737960;
 my $DBVER   = 1;
 
-for my $s (qw/ dbh jail /) {
+for my $s (qw/ dbh jail dbname /) {
     no strict "refs";
     *$s = sub { $_[0]{$s} };
 }
@@ -18,30 +22,63 @@ for my $s (qw/ dbh jail /) {
 sub BUILDARGS {
     my ($class, $config, $jail) = @_;
 
+    my $pkgdb   = $config->pkgdb;
+    my $jname   = $jail->jname;
+    my $dbname  = "$pkgdb/$jname";
+
     return {
         config  => $config,
         jail    => $jail,
+        dbname  => $dbname,
     };
 }
 
 sub BUILD {
     my ($self) = @_;
 
-    my $pkgdb   = $self->config->pkgdb;
-    my $jname   = $self->jail->jname;
-
+    my $dbname  = $self->dbname; 
     my $dbh     = DBI->connect(
-        "dbi:SQLite:$pkgdb/$jname", undef, undef, { 
+        "dbi:SQLite:$dbname", undef, undef, { 
             PrintError  => 0,
             RaiseError  => 1,
         },
     );
     $self->_set(dbh => $dbh);
 
-    my $dbver = eval {
-        $dbh->selectrow_array("select version from pkgdb")
-    } // 0;
-    $dbver == $DBVER or $self->setup_db;
+    # this will croak for anything but an empty db
+    $self->check_db_ver or $self->setup_db;
+}
+
+sub _select {
+    my ($self, $sql) = @_;
+    $self->dbh->selectrow_array($sql);
+}
+
+sub check_db_ver {
+    my ($self) = @_;
+
+    my $dbname = $self->dbname;
+
+    my $appid = $self->_select("pragma application_id");
+    defined $appid
+        or die "CPAN::Package needs DBD::SQLite 1.39\n";
+
+    unless ($appid == $APPID) {
+        my $schema = $self->_select("pragma schema_version");
+
+        # empty database
+        $appid == 0 && $schema == 0 and return;
+
+        croak sprintf 
+            "%s is not a CPAN::Package pkgdb (appid %x)",
+            $dbname, $appid;
+    }
+    
+    my $dbver = $self->_select("pragma user_version");
+    $dbver == $DBVER
+        or croak "$dbname is the wrong version ($dbver vs $DBVER)";
+
+    return 1;
 }
 
 sub _create_tables {
@@ -51,9 +88,6 @@ sub _create_tables {
 
     # INTEGER PRIMARY KEY is SQLitish for 'serial' (or rather 'oid')...
     $dbh->do($_) for split /;/, <<SQL;
-create table pkgdb (
-    version integer
-);
 create table dist (
     id      integer     primary key,
     name    varchar,
@@ -101,18 +135,22 @@ SQL
 sub setup_db {
     my ($self) = @_;
 
+    # just checking... 1.39 included SQLite 3.7.17 which has
+    # application_id support.
+    DBD::SQLite->VERSION(1.39);
+
     my $dbh = $self->dbh;
 
     say "===> Creating pkgdb";
     $dbh->begin_work;
 
+    # pragma doesn't do placeholders
+    $dbh->do("pragma application_id = $APPID");
+
     $self->_create_tables;
     $self->_register_core($]);
 
-    $dbh->do(
-        "insert into pkgdb (version) values (?)", 
-        undef, $DBVER,
-    );
+    $dbh->do("pragma user_version = $DBVER");
 
     $dbh->commit;
 }
