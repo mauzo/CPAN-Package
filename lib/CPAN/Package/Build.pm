@@ -146,8 +146,14 @@ sub configure_dist {
 
     if (-f $jail->hpath("$work/Build.PL")) {
         $jail->injail($work, $perl, "Build.PL", 
-            "--destdir", $dest,
-            "--installdirs", "site",
+            "--destdir",            $dest,
+            "--installdirs",        "site",
+            # There is currently no satisfactory solution to the
+            # site_bin problem. Since pkg won't let me install pkgs with
+            # conflicting files, just punt for now with a real site_bin
+            # directory.
+            "--install_path",       "script=/opt/perl/site_bin",
+            "--install_path",       "bin=/opt/perl/site_bin",
         );
         $self->_set(make => "./Build");
     }
@@ -155,6 +161,8 @@ sub configure_dist {
         $jail->injail($work, $perl, "Makefile.PL", 
             "DESTDIR=$dest",
             "INSTALLDIRS=site",
+            "INSTALLSITESCRIPT=/opt/perl/site_bin",
+            "INSTALLSITEBIN=/opt/perl/site_bin",
         );
         $self->_set(make => $Config{make});
     }
