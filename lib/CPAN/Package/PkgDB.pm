@@ -90,16 +90,16 @@ sub _create_tables {
     $dbh->do($_) for split /;/, <<SQL;
 create table dist (
     id      integer     primary key,
-    name    varchar,
-    version varchar,
-    type    varchar,
+    name    varchar     not null,
+    version varchar     not null,
+    type    varchar     not null,
     unique (name, version)
 );
 create table module (
     id      integer     primary key,
-    name    varchar,
+    name    varchar     not null,
     version varchar,
-    dist    integer     references dist,
+    dist    integer     not null references dist,
     unique (name, dist)
 );
 SQL
@@ -172,8 +172,11 @@ SQL
     );
 }
 
-sub register_dist {
-    my ($self, $dist, $mods) = @_;
+sub register_build {
+    my ($self, $build, $deps) = @_;
+
+    my $dist    = $build->dist;
+    my $mods    = $build->provides;
 
     my $dbh = $self->dbh;
     $dbh->begin_work;

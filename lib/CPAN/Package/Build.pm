@@ -98,7 +98,7 @@ sub satisfy_reqs {
     for my $d (@{$$req{pkg}}) {
         my $pkg = "cpan2pkg-$$d{dist}-$$d{distver}";
         say "===> Install package $pkg";
-        $pkgtool->install_pkgs("/cpan2pkg/pkg/$pkg.txz");
+        $pkgtool->install_my_pkgs($pkg);
     }
     for my $m (@{$$req{needed}}) {
         say "===> NEEDED [$$m{module}]";

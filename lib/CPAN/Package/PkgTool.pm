@@ -38,10 +38,33 @@ sub _pkg {
     $jail->injail($cwd, $jail->jpath("pkg-static"), @args);
 }
 
-sub install_pkgs {
+sub install_sys_pkgs {
     my ($self, @pkgs) = @_;
 
-    $self->_pkg("", "add", @pkgs);
+    my @new = grep !$self->is_installed($_), @pkgs
+        or return;
+    $self->_pkg("", "add",
+        map "/packages/All/$_.txz", 
+        @new
+    );
+}
+
+sub install_my_pkgs {
+    my ($self, @pkgs) = @_;
+
+    my @new = grep !$self->is_installed($_), @pkgs
+        or return;
+    $self->_pkg("", "add",
+        map $self->jail->jpath("pkg/$_.txz"), 
+        @new
+    );
+}
+
+sub is_installed {
+    my ($self, $pkg) = @_;
+
+    $self->_pkg("", "info", "-qe", $pkg);
+    return $? == 0;
 }
 
 sub _write_plist {
@@ -71,26 +94,65 @@ sub _write_plist {
         );
 }
 
-sub _write_manifest {
-    my ($self, $build, $mandir) = @_;
+sub pkg_for_dist {
+    my ($self, $dist) = @_;
+    my $name = $dist->name;
+    return {
+        name    => "cpan2pkg-$name",
+        version => $dist->version,
+        origin  => "cpan2pkg/$name",
+    };
+}
 
-    my $name    = $build->dist->name;
-    my $version = $build->dist->version;
+sub deps_for_build {
+    my ($self, $build) = @_;
+    
+    my $conf    = $self->config;
+    my $req     = $build->needed("install");
+    return
+        { 
+            name    => "opt-perl", 
+            version => "5.16.3", 
+            origin  => "lang/opt-perl",
+        },
+        map $self->pkg_for_dist($_),
+        map $conf->find(Dist =>
+            name    => $$_{dist},
+            version => $$_{distver},
+        ),
+        @{ $$req{pkg} };
+}
+
+sub _write_manifest {
+    my ($self, $build, $mandir, $pkgdeps) = @_;
+
+    my $dist    = $build->dist;
+    my $name    = $dist->name;
+    my $info    = $self->pkg_for_dist($dist);
     my $maint   = $self->config("builtby");
     my $prefix  = $self->config("prefix");
 
+    my $deps =
+        join "",
+        map <<YAML,
+  $$_{name}:
+    version: $$_{version}
+    origin: $$_{origin}
+YAML
+        @$pkgdeps;
+
     # This must not contain tabs. It upsets pkg.
     write_file "$mandir/+MANIFEST", <<MANIFEST;
-name:       cpan2pkg-$name
-origin:     cpan2pkg/$name
-version:    $version
+name:       $$info{name}
+origin:     $$info{origin}
+version:    $$info{version}
 comment:    $name built with CPAN::Package.
 desc:       $name built with CPAN::Package.
 www:        http://search.cpan.org/dist/$name
 maintainer: $maint
 prefix:     $prefix
-dep:
-    opt-perl: { version: 5.16.3, origin: lang/opt-perl }
+deps:
+$deps
 MANIFEST
 }
 
@@ -106,8 +168,10 @@ sub create_pkg {
     my $mandir  = $jail->hpath("$wrkdir/manifest");
     mkdir $mandir;
 
+    my @deps    = $self->deps_for_build($build);
+
     $self->_write_plist($build, "$mandir/pkg-plist");
-    $self->_write_manifest($build, $mandir);
+    $self->_write_manifest($build, $mandir, \@deps);
 
     $self->_pkg($wrkdir, "create",
         -o  => $jail->jpath("pkg"),
@@ -115,6 +179,8 @@ sub create_pkg {
         -m  => "manifest",
         -p  => "manifest/pkg-plist",
     );
+
+    $jail->pkgdb->register_build($build, \@deps);
 }
 
 1;

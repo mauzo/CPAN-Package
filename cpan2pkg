@@ -18,11 +18,10 @@ my $Conf = CPAN::Package->new(
 
     perl        => "/opt/perl/bin/perl",
     prefix      => "/opt/perl",
-    initpkgs    => [ 
-        map "/packages/All/$_.txz", qw[
-            pkg-1.1.3_1
-            opt-perl-5.16.3
-            mksh-r46
+    initpkgs    => [ qw[
+        pkg-1.1.3_1
+        opt-perl-5.16.3
+        mksh-r46
     ]],
 
     dist        => abs_path("dist"),
@@ -39,10 +38,10 @@ my $pkg     = $jail->pkgtool;
 my $pkgdb   = $jail->pkgdb;
 
 $jail->start;
-$pkg->install_pkgs($Conf->initpkgs);
+$pkg->install_sys_pkgs($Conf->initpkgs);
 
 for my $mod (@ARGV) {
-    my $dist        = $Conf->find(Dist => $mod);
+    my $dist        = $Conf->find(Dist => spec => $mod);
     $dist->fetch;
 
     my $build       = $Conf->find(Build => $jail, $dist);
@@ -58,9 +57,6 @@ for my $mod (@ARGV) {
     $build->fixup_install;
 
     $pkg->create_pkg($build);
-
-    my $mods        = $build->provides;
-    $pkgdb->register_dist($dist, $mods);
 }
 
 $jail->injail("", $ENV{SHELL});

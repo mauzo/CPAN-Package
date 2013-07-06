@@ -19,7 +19,7 @@ for my $m (qw/name version distfile tar/) {
     *$m = sub { $_[0]{$m} };
 }
 
-sub BUILDARGS {
+sub resolve {
     my ($class, $conf, $spec) = @_;
 
     my $distfile;
@@ -47,6 +47,20 @@ sub BUILDARGS {
         distfile    => $distfile,
     };
 }
+
+sub BUILDARGS {
+    my ($class, $conf, %args) = @_;
+
+    if (my $spec = $args{spec}) {
+        return $class->resolve($conf, $spec);
+    }
+
+    return {
+        %args,
+        config  => $conf,
+    };
+}
+
 
 sub fetch {
     my ($self) = @_;
