@@ -6,10 +6,12 @@ use strict;
 
 use parent "CPAN::Package::Base";
 
+use Capture::Tiny           qw/capture_stdout/;
 use Carp;
 use File::Find::Rule;
-use File::Slurp         qw/write_file/;
+use File::Slurp             qw/write_file/;
 use File::Spec::Functions   qw/abs2rel/;
+use List::MoreUtils         qw/uniq/;
 
 for my $s (qw/ jail /) {
     no strict "refs";
@@ -123,23 +125,34 @@ sub deps_for_build {
         @{ $$req{pkg} };
 }
 
+sub _all_deps {
+    my ($self, $pkg) = @_;
+
+    capture_stdout {
+        $self->_pkg("", "query", 
+            "  %${_}n: { version: %${_}v, origin: %${_}o }",
+            $$pkg{origin}
+        )
+            for "", "d";
+    };
+}
+
 sub _write_manifest {
-    my ($self, $build, $mandir, $pkgdeps) = @_;
+    my ($self, $build, $mandir) = @_;
 
     my $dist    = $build->dist;
     my $name    = $dist->name;
     my $info    = $self->pkg_for_dist($dist);
+    my @deps    = $self->deps_for_build($build);
     my $maint   = $self->config("builtby");
     my $prefix  = $self->config("prefix");
 
-    my $deps =
-        join "",
-        map <<YAML,
-  $$_{name}:
-    version: $$_{version}
-    origin: $$_{origin}
-YAML
-        @$pkgdeps;
+    my $deps    = 
+        join "\n",
+        uniq
+        map split("\n"),
+        map $self->_all_deps($_),
+        @deps;
 
     # This must not contain tabs. It upsets pkg.
     write_file "$mandir/+MANIFEST", <<MANIFEST;
@@ -168,10 +181,8 @@ sub create_pkg {
     my $mandir  = $jail->hpath("$wrkdir/manifest");
     mkdir $mandir;
 
-    my @deps    = $self->deps_for_build($build);
-
     $self->_write_plist($build, "$mandir/pkg-plist");
-    $self->_write_manifest($build, $mandir, \@deps);
+    $self->_write_manifest($build, $mandir);
 
     $self->_pkg($wrkdir, "create",
         -o  => $jail->jpath("pkg"),
@@ -180,7 +191,7 @@ sub create_pkg {
         -p  => "manifest/pkg-plist",
     );
 
-    $jail->pkgdb->register_build($build, \@deps);
+    $jail->pkgdb->register_build($build);
 }
 
 1;
