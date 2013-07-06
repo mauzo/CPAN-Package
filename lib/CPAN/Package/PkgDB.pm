@@ -141,7 +141,7 @@ sub setup_db {
 
     my $dbh = $self->dbh;
 
-    say "===> Creating pkgdb";
+    $self->say(2, "Creating pkgdb");
     $dbh->begin_work;
 
     # pragma doesn't do placeholders
@@ -190,7 +190,7 @@ SQL
     );
     my $distid = $dbh->selectrow_array("select last_insert_rowid()");
 
-    say sprintf "===> %s-%s provides:", $dist->name, $dist->version;
+    $self->sayf(2, "%s-%s provides:", $dist->name, $dist->version);
 
     while (my ($name, $m) = each %$mods) {
         $dbh->do(
@@ -200,7 +200,7 @@ SQL
 SQL
             undef, $name, $$m{version}, $distid,
         );
-        say "====> $name $$m{version}";
+        $self->say(3, "$name $$m{version}");
     }
 
     $dbh->commit;

@@ -38,4 +38,12 @@ sub config {
     $config->$key;
 }
 
+for my $d (qw/ say sayf /) {
+    no strict "refs";
+    *$d = sub {
+        my ($self, @args) = @_;
+        $self->config->$d(@args);
+    };
+}
+
 1;

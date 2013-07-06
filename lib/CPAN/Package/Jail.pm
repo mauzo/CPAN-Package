@@ -48,12 +48,9 @@ export PERL5_CPAN_IS_RUNNING=$$
 export PERL5_CPANPLUS_IS_RUNNING=$$
 export PERL_MM_USE_DEFAULT=1
 
-dir="/cpan2pkg/$1"
+cd "$1"
 shift
 
-echo "===> Running [$*] in [$dir]"
-
-cd "$dir"
 exec "$@"
 SH
 
@@ -96,8 +93,18 @@ sub start {
 
 sub injail {
     my ($self, $dir, @cmd) = @_;
+
+    my $cwd     = $self->jpath($dir);
+    my $cmd     = 
+        join " ",
+        map /["'`(){}<>| \t*?!\$\\;#]/
+            ? qq/"/ . s/(["`\$\\])/\\$1/gr . qq/"/ 
+            : $_,
+        @cmd;
+    $self->say(3, "Running '$cmd' in $cwd");
+
     $self->su("jexec", $self->jname, 
-        "/bin/sh", $self->jpath("injail"), $dir, 
+        "/bin/sh", $self->jpath("injail"), $cwd,
         @cmd);
 }
 

@@ -71,16 +71,16 @@ sub fetch {
     my $path    = "$$conf{dist}/$dist";
     my $url     = "$$conf{cpan}/authors/id/$dist";
 
-    say "==> Fetching $dist";
+    $self->say(1, "Fetching $dist");
 
     make_path dirname $path;
 
     my $rs = $conf->http->mirror($url, $path);
     unless ($$rs{success}) {
-        say "!!! Fetch failed: $$rs{reason}";
+        $self->say(1, "!!! Fetch failed: $$rs{reason}");
         return;
     }
-    $$rs{status} == 304 and say "===> Already fetched";
+    $$rs{status} == 304 and $self->say(2, "Already fetched");
 
     $self->_set(tar => $path);
     return $path;

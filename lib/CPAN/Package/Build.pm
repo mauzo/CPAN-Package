@@ -41,7 +41,7 @@ sub read_meta {
 
     for (map $self->jail->hpath("$wrksrc/$file.$_"), qw/json yml/) {
         -r or next;
-        say "===> Reading metadata from $_";
+        $self->say(2, "Reading metadata from $_");
         my $meta = CPAN::Meta->load_file($_)
             or return;
         $self->_set(meta => $meta);
@@ -83,7 +83,7 @@ sub needed {
         push @{$mods{$state}}, $d;
 
         my $ver = $req->requirements_for_module($m);
-        say "===> Dep ($phase): $m $ver [$state]";
+        $self->say(2, "Dep ($phase): $m $ver [$state]");
     }
 
     return \%mods;
@@ -97,14 +97,14 @@ sub satisfy_reqs {
     my $req = $self->needed($phase);
     for my $d (@{$$req{pkg}}) {
         my $pkg = "cpan2pkg-$$d{dist}-$$d{distver}";
-        say "===> Install package $pkg";
+        $self->say(2, "Install package $pkg");
         $pkgtool->install_my_pkgs($pkg);
     }
     for my $m (@{$$req{needed}}) {
-        say "===> NEEDED [$$m{module}]";
+        $self->say(2, "NEEDED [$$m{module}]");
     }
     if (@{$$req{needed}}) {
-        say "==> Unsatisfied deps";
+        $self->say(1, "Unsatisfied deps");
         return;
     }
 
@@ -122,7 +122,7 @@ sub unpack_dist {
     mkdir $work;
     $self->_set(wrkdir => $wrkdir);
 
-    say "==> Unpacking $dist";
+    $self->say(1, "Unpacking $dist");
 
     # libarchive++
     system "tar", "-xf", $self->dist->tar, "-C", $work;
@@ -144,11 +144,11 @@ sub configure_dist {
     my ($self) = @_;
 
     my $dist = $self->dist->name;
-    say "==> Configuring $dist";
+    $self->say(1, "Configuring $dist");
 
     my $jail = $self->jail;
     my $dest = $jail->jpath($self->destdir);
-    say "===> Using dest [$dest]";
+    $self->say(2, "Using dest [$dest]");
 
     my $work    = $self->wrksrc;
     my $perl    = $self->config("perl");
@@ -183,7 +183,7 @@ sub configure_dist {
 sub make_dist {
     my ($self, $target) = @_;
 
-    say "==> \u${target}ing " . $self->dist->name;
+    $self->say(1, "\u${target}ing", $self->dist->name);
     $self->jail->injail($self->wrksrc, 
         $self->make, ($target eq "build" ? () : $target));
 }
