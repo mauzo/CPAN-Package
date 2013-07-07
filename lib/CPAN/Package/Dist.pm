@@ -19,6 +19,8 @@ for my $m (qw/name version distfile tar/) {
     *$m = sub { $_[0]{$m} };
 }
 
+sub fullname { join "-", map $_[0]->$_, qw/name version/ }
+
 sub resolve {
     my ($class, $conf, $spec) = @_;
 

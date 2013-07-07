@@ -40,23 +40,39 @@ my $pkgdb   = $jail->pkgdb;
 $jail->start;
 $pkg->install_sys_pkgs($Conf->initpkgs);
 
-for my $mod (@ARGV) {
+my @mods = @ARGV;
+my %done;
+
+while (my $mod = shift @mods) {
     my $dist        = $Conf->find(Dist => spec => $mod);
+    if ($done{$dist->name}) {
+        $Conf->sayf(1, "%s already built, skipping", $dist->name);
+        next;
+    }
     $dist->fetch;
 
     my $build       = $Conf->find(Build => $jail, $dist);
     $build->unpack_dist;
     $build->read_meta("META");
 
-    $build->satisfy_reqs("configure") or next;
+    if (my @needed = $build->satisfy_reqs("configure")) {
+        unshift @mods, @needed, $mod;
+        $Conf->say(1, "Deferring for deps");
+        next;
+    }
     $build->configure_dist;
     $build->read_meta("MYMETA");
 
-    $build->satisfy_reqs("build") or next;
+    if (my @needed = $build->satisfy_reqs("build")) {
+        unshift @mods, @needed, $mod;
+        $Conf->say(1, "Deferring for deps");
+        next;
+    }
     $build->make_dist($_) for qw/build install/;
     $build->fixup_install;
 
     $pkg->create_pkg($build);
+    $done{$dist->name} = 1;
 }
 
 $jail->injail("", $ENV{SHELL});

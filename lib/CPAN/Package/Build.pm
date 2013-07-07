@@ -15,6 +15,7 @@ use File::Find::Rule;
 use File::Find::Rule::DirectoryEmpty;
 use File::Slurp             qw/read_dir/;
 use File::Spec::Functions   qw/abs2rel/;
+use File::Path              qw/remove_tree/;
 use File::Temp              qw/tempdir/;
 use List::Util              qw/first/;
 use Module::Metadata;
@@ -92,23 +93,20 @@ sub needed {
 sub satisfy_reqs {
     my ($self, $phase) = @_;
 
-    my $pkgtool = $self->jail->pkgtool;
+    my $config  = $self->config;
+    my $pkg     = $self->jail->pkgtool;
+    my $req     = $self->needed($phase);
 
-    my $req = $self->needed($phase);
     for my $d (@{$$req{pkg}}) {
-        my $pkg = "cpan2pkg-$$d{dist}-$$d{distver}";
-        $self->say(2, "Install package $pkg");
-        $pkgtool->install_my_pkgs($pkg);
-    }
-    for my $m (@{$$req{needed}}) {
-        $self->say(2, "NEEDED [$$m{module}]");
-    }
-    if (@{$$req{needed}}) {
-        $self->say(1, "Unsatisfied deps");
-        return;
+        my $dist = $config->find(Dist =>
+            name    => $$d{dist},
+            version => $$d{distver},
+        );
+        $self->sayf(2, "Install package for %s", $dist->fullname);
+        $pkg->install_my_pkgs($dist);
     }
 
-    return 1;
+    return map $$_{module}, @{$$req{needed}};
 }
 
 sub unpack_dist {
@@ -119,6 +117,11 @@ sub unpack_dist {
 
     my $wrkdir  = "build/$dist";
     my $work    = $jail->hpath($wrkdir);
+    if (-e $work) {
+        $self->say(2, "Cleaning old workdir");
+        $self->config->su->("rm", "-rf", $work);
+    }
+
     mkdir $work;
     $self->_set(wrkdir => $wrkdir);
 

@@ -52,9 +52,13 @@ sub install_sys_pkgs {
 }
 
 sub install_my_pkgs {
-    my ($self, @pkgs) = @_;
+    my ($self, @dists) = @_;
 
-    my @new = grep !$self->is_installed($_), @pkgs
+    my @new = 
+        grep !$self->is_installed($_),
+        map "$$_{name}-$$_{version}",
+        map $self->pkg_for_dist($_),
+        @dists
         or return;
     $self->_pkg("", "add",
         map $self->jail->jpath("pkg/$_.txz"), 
