@@ -61,14 +61,26 @@ my %Phases = (
 sub needed {
     my ($self, $phase) = @_;
 
-    my $pkgdb   = $self->jail->pkgdb;
+    my $meta    = $self->meta;
+    my $prereq  = $meta ? $meta->effective_prereqs
+        : CPAN::Meta::Prereqs->new;
+    my $cfreq   = $prereq->requirements_for("configure", "requires");
 
-    my $prereq  = $self->meta->effective_prereqs;
+    if (!(() = $cfreq->required_modules)) {
+        my $wrksrc  = $self->jail->hpath($self->wrksrc);
+        my $maker   = -f "$wrksrc/Build.PL"
+            ? "Module::Build" : "ExtUtils::MakeMaker";
+
+        $self->say(2, "No configure requirements, assuming $maker");
+        $cfreq->add_minimum($maker, 0);
+    }
+
     my $req = CPAN::Meta::Requirements->new;
     $req->add_requirements($prereq->requirements_for($_, "requires"))
         for @{$Phases{$phase}};
 
     my %mods;
+    my $pkgdb   = $self->jail->pkgdb;
     for my $m ($req->required_modules) {
         my $dists = $pkgdb->find_module($m);
         my $d = first {

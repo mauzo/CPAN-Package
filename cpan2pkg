@@ -41,38 +41,42 @@ $jail->start;
 $pkg->install_sys_pkgs($Conf->initpkgs);
 
 my @mods = @ARGV;
-my %done;
+my %tried;
 
 while (my $mod = shift @mods) {
     my $dist        = $Conf->find(Dist => spec => $mod);
-    if ($done{$dist->name}) {
-        $Conf->sayf(1, "%s already built, skipping", $dist->name);
+    my $distname    = $dist->name;
+
+    if ($tried{$distname}) {
+        $Conf->say(1, "Already tried $distname, skipping");
         next;
     }
+    $tried{$distname} = 1;
     $dist->fetch;
 
     my $build       = $Conf->find(Build => $jail, $dist);
     $build->unpack_dist;
     $build->read_meta("META");
 
-    if (my @needed = $build->satisfy_reqs("configure")) {
-        unshift @mods, @needed, $mod;
-        $Conf->say(1, "Deferring for deps");
-        next;
-    }
+    my $check_reqs = sub {
+        no warnings "exiting";
+        if (my @needed = $build->satisfy_reqs($_[0])) {
+            unshift @mods, @needed, $mod;
+            delete $tried{$distname};
+            $Conf->say(1, "Deferring for deps");
+            next;
+        }
+    };
+
+    $check_reqs->("configure");
     $build->configure_dist;
     $build->read_meta("MYMETA");
 
-    if (my @needed = $build->satisfy_reqs("build")) {
-        unshift @mods, @needed, $mod;
-        $Conf->say(1, "Deferring for deps");
-        next;
-    }
+    $check_reqs->("build");
     $build->make_dist($_) for qw/build install/;
     $build->fixup_install;
 
     $pkg->create_pkg($build);
-    $done{$dist->name} = 1;
 }
 
 $jail->injail("", $ENV{SHELL});
