@@ -42,7 +42,7 @@ sub read_meta {
 
     for (map $self->jail->hpath("$wrksrc/$file.$_"), qw/json yml/) {
         -r or next;
-        $self->say(2, "Reading metadata from $_");
+        $self->say(3, "Reading metadata from $_");
         my $meta = CPAN::Meta->load_file($_)
             or return;
         $self->_set(meta => $meta);
@@ -124,6 +124,7 @@ sub satisfy_reqs {
 sub unpack_dist {
     my ($self) = @_;
 
+    my $conf = $self->config;
     my $jail = $self->jail;
     my $dist = $self->dist->name;
 
@@ -131,7 +132,7 @@ sub unpack_dist {
     my $work    = $jail->hpath($wrkdir);
     if (-e $work) {
         $self->say(2, "Cleaning old workdir");
-        $self->config->su->("rm", "-rf", $work);
+        $conf->su("rm", "-rf", $work);
     }
 
     mkdir $work;
@@ -140,7 +141,7 @@ sub unpack_dist {
     $self->say(1, "Unpacking $dist");
 
     # libarchive++
-    system "tar", "-xf", $self->dist->tar, "-C", $work;
+    $conf->system("tar", "-xf", $self->dist->tar, "-C", $work);
 
     my @contents    = read_dir $work;
     my $wrksrc      = "$wrkdir/$contents[0]";
@@ -211,18 +212,18 @@ sub fixup_install {
     my $dest    = $self->destdir;
     my $hdest   = $jail->hpath($dest);
     my $jdest   = $jail->jpath($dest);
-    my $su      = $self->config("su");
+    my $config  = $self->config;
 
-    $su->($^X, "-pi", "-es,\Q$jdest\E,,",
-        $FFR->file->name(".packlist")->in($hdest));
+    my @plists  = $FFR->file->name(".packlist")->in($hdest);
+    @plists and $config->su($^X, "-pi", "-es,\Q$jdest\E,,", @plists);
     
     # Forget perllocal.pod for now. Ideally we'd fix it up in a
     # post-install script.
-    $su->("rm", "-f",
+    $config->su("rm", "-f",
         $FFR->file->name("perllocal.pod")->in($hdest));
 
     while (my @e = $FFR->directoryempty->in($hdest)) {
-        $su->("rmdir", @e);;
+        $config->su("rmdir", @e);;
     }
 }
 

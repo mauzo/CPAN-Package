@@ -19,7 +19,7 @@ sub umount { @{ $_[0]{umount} } }
 
 sub su {
     my ($self, @cmd) = @_;
-    $self->config("su")->(@cmd);
+    $self->config->su(@cmd);
 }
 
 sub mount_tmpfs {
@@ -70,8 +70,11 @@ sub start {
 
     my $config  = $self->config;
     my $jname   = $self->jname;
+    my $name    = $self->name;
 
-    $self->su("poudriere", "jail", "-sj", $self->name);
+    $self->say(1, "Starting jail $name");
+
+    $self->su("poudriere", "jail", "-sj", $name);
     $self->_set(running => 1);
 
     chomp(my $root = qx/jls -j $jname path/);
@@ -120,6 +123,8 @@ sub pkgdb {
 
 sub stop {
     my ($self) = @_;
+
+    $self->sayf(1, "Stopping jail %s", $self->name);
 
     for (map $self->hpath($_), $self->umount) {
         $self->su("umount", $_);

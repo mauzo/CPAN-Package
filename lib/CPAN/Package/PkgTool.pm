@@ -158,6 +158,8 @@ sub _write_manifest {
         map $self->_all_deps($_),
         @deps;
 
+    $self->say(3, "Full deps:\n$deps");
+
     # This must not contain tabs. It upsets pkg.
     write_file "$mandir/+MANIFEST", <<MANIFEST;
 name:       $$info{name}

@@ -15,6 +15,9 @@ $SIG{INT} = sub {
 
 my $Conf = CPAN::Package->new(
     builtby     => "ben\@morrow.me.uk",
+    verb        => 2,
+    log         => "log",
+    redirect_stdh   => 1,
 
     perl        => "/opt/perl/bin/perl",
     prefix      => "/opt/perl",
@@ -29,7 +32,8 @@ my $Conf = CPAN::Package->new(
     pkgdb       => abs_path("pkgdb"),
 
     su          => sub { 
-        system "sudo", @_;
+        my ($conf, @cmd) = @_;
+        $conf->system("sudo", @cmd);
     },
 );
 
@@ -79,6 +83,6 @@ while (my $mod = shift @mods) {
     $pkg->create_pkg($build);
 }
 
-$jail->injail("", $ENV{SHELL});
+$jail->injail("", "sh", "-c", "$ENV{SHELL} >/dev/tty 2>&1");
 
 $jail->stop;

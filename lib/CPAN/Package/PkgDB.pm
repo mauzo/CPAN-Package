@@ -190,7 +190,7 @@ SQL
     );
     my $distid = $dbh->selectrow_array("select last_insert_rowid()");
 
-    $self->sayf(2, "%s-%s provides:", $dist->name, $dist->version);
+    $self->sayf(3, "%s-%s provides:", $dist->name, $dist->version);
 
     while (my ($name, $m) = each %$mods) {
         $dbh->do(
@@ -200,7 +200,7 @@ SQL
 SQL
             undef, $name, $$m{version}, $distid,
         );
-        $self->say(3, "$name $$m{version}");
+        $self->say(3, "  $name $$m{version}");
     }
 
     $dbh->commit;
