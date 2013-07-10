@@ -61,6 +61,8 @@ my %Phases = (
 sub needed {
     my ($self, $phase) = @_;
 
+    my $conf    = $self->config;
+
     my $meta    = $self->meta;
     my $prereq  = $meta ? $meta->effective_prereqs
         : CPAN::Meta::Prereqs->new;
@@ -145,8 +147,11 @@ sub unpack_dist {
 
     my @contents    = read_dir $work;
     my $wrksrc      = "$wrkdir/$contents[0]";
+
     @contents != 1 || ! -d $jail->hpath($wrksrc)
-        and die "$dist does not unpack into a single directory\n";
+        and $conf->throw("Unpack", 
+            "does not unpack into a single directory");
+
     $self->_set(wrksrc => $wrksrc);
 
     my $dest    = "$wrkdir/tmproot";
@@ -167,7 +172,8 @@ sub configure_dist {
     $self->say(2, "Using dest [$dest]");
 
     my $work    = $self->wrksrc;
-    my $perl    = $self->config("perl");
+    my $conf    = $self->config;
+    my $perl    = $conf->perl;
 
     if (-f $jail->hpath("$work/Build.PL")) {
         $jail->injail($work, $perl, "Build.PL", 
@@ -179,7 +185,11 @@ sub configure_dist {
             # directory.
             "--install_path",       "script=/opt/perl/site_bin",
             "--install_path",       "bin=/opt/perl/site_bin",
-        );
+        )
+            or $conf->throw("Configure", "Build.PL failed");
+
+        -f $jail->hpath("$work/Build")
+            or $conf->throw("Skip", "No Build created");
         $self->_set(make => "./Build");
     }
     elsif (-f $jail->hpath("$work/Makefile.PL")) {
@@ -188,11 +198,15 @@ sub configure_dist {
             "INSTALLDIRS=site",
             "INSTALLSITESCRIPT=/opt/perl/site_bin",
             "INSTALLSITEBIN=/opt/perl/site_bin",
-        );
+        )
+            or $conf->throw("Configure", "Makefile.PL failed");
+
+        -f $jail->hpath("$work/Makefile")
+            or $conf->throw("Skip", "No Makefile created");
         $self->_set(make => $Config{make});
     }
     else {
-        die "Don't know how to configure $dist\n";
+        $conf->throw("Skip", "don't know how to configure $dist");
     }
 }
 

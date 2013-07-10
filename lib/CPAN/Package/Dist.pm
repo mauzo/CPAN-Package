@@ -30,17 +30,21 @@ sub resolve {
     }
     else {
         my $rs = $conf->http->get("$$conf{metadb}/$spec");
-        $$rs{success}  or die "can't resolve module '$spec'\n";
+        $$rs{success} or $conf->throw(Resolve =>
+            "can't resolve module '$spec'");
         
         my $meta = Parse::CPAN::Meta->load_yaml_string(
             decode "utf8", $$rs{content}
-        )               or die "can't parse meta for '$spec'\n";
+        ) or $conf->throw(Resolve => "can't parse meta for '$spec'");
         $distfile = $$meta{distfile};
     }
 
     my ($name, $version) = $distfile =~
             m!^ .*/ ([-A-Za-z0-9_+]+) - ([^-]+) $Ext $!x
-        or die "Can't parse distfile name '$distfile'\n";
+        or $conf->throw(Resolve =>
+            "Can't parse distfile name '$distfile'");
+
+    $conf->say(3, "Resolved $spec to $distfile");
     
     return {
         config      => $conf,
@@ -78,10 +82,8 @@ sub fetch {
     make_path dirname $path;
 
     my $rs = $conf->http->mirror($url, $path);
-    unless ($$rs{success}) {
-        $self->say(1, "!!! Fetch failed: $$rs{reason}");
-        return;
-    }
+    $$rs{success} or $conf->throw(Fetch =>
+        "Fetch for $dist failed: $$rs{reason}");
     $$rs{status} == 304 and $self->say(2, "Already fetched");
 
     $self->_set(tar => $path);

@@ -7,6 +7,7 @@ use autodie;
 
 use CPAN::Package;
 use Cwd             qw/abs_path/;
+use List::Util      qw/first/;
 use Try::Tiny;
 
 $SIG{INT} = sub {
@@ -46,12 +47,15 @@ $jail->start;
 $pkg->install_sys_pkgs($Conf->initpkgs);
 
 my @mods = @ARGV;
-my %tried;
+my (%tried, %failed);
 
 sub check_reqs {
     my ($Conf, $build, $phase) = @_;
 
     if (my @needed = $build->satisfy_reqs($phase)) {
+        if (my $fail = first { $failed{$_} } @needed) {
+            $Conf->throw("Skip", "Already failed to build $fail");
+        }
         $Conf->throw("Needed", \@needed);
     }
 };
@@ -60,13 +64,13 @@ while (my $mod = shift @mods) {
     my $dist        = $Conf->find(Dist => spec => $mod);
     my $distname    = $dist->name;
 
-    if ($tried{$distname}) {
-        $Conf->say(1, "Already tried $distname, skipping");
-        next;
-    }
-    $tried{$distname} = 1;
-
     try {
+        if ($tried{$distname}) {
+            $Conf->throw("Skip", "Already tried $distname");
+            next;
+        }
+        $tried{$distname} = 1;
+
         $dist->fetch;
 
         my $build = $Conf->find(Build => $jail, $dist);
@@ -87,6 +91,7 @@ while (my $mod = shift @mods) {
         unless (eval { $_->isa("CPAN::Package::Exception") }) {
             $Conf->say(1, "$distname failed");
             $Conf->say(2, "  $_");
+            return;
         }
         
         my $type = $_->type;
@@ -97,12 +102,21 @@ while (my $mod = shift @mods) {
             delete $tried{$distname};
             unshift @mods, @$info, $mod;
         }
+        elsif ($type eq "Skip") {
+            $Conf->say(1, "Skip $distname");
+            $Conf->say(2, "  $info");
+        }
         else {
+            $failed{$mod} = 1;
             $Conf->say(1, "$distname failed");
             $Conf->say(2, "  $type ($info)");
         }
     };
-1
+}
+
+if (%failed) {
+    $Conf->say(1, "Failed to build:");
+    $Conf->say(1, "  $_") for keys %failed;
 }
 
 $jail->injail("", "sh", "-c", "$ENV{SHELL} >/dev/tty 2>&1");
