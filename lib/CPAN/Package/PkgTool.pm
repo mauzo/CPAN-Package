@@ -175,6 +175,17 @@ $deps
 MANIFEST
 }
 
+sub _write_scripts {
+    my ($self, $build, $mandir) = @_;
+
+    my @post = $build->post_install or return;
+    $self->say(2, "Post-install commands:");
+    $self->say(2, "  $_") for @post;
+
+    write_file "$mandir/+POST_INSTALL",
+        join "\n",
+        @post;
+}
 
 sub create_pkg {
     my ($self, $build) = @_;
@@ -189,6 +200,7 @@ sub create_pkg {
 
     $self->_write_plist($build, "$mandir/pkg-plist");
     $self->_write_manifest($build, $mandir);
+    $self->_write_scripts($build, $mandir);
 
     $self->_pkg($wrkdir, "create",
         -o  => $jail->jpath("pkg"),

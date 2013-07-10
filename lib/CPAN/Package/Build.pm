@@ -18,11 +18,19 @@ use File::Spec::Functions   qw/abs2rel/;
 use File::Path              qw/remove_tree/;
 use File::Temp              qw/tempdir/;
 use List::Util              qw/first/;
+use Makefile::Parser;
 use Module::Metadata;
 
 for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
+}
+
+sub post_install {
+    my ($self, @new) = @_;
+    my $pi = $self->{post_install} //= [];
+    push @$pi, @new;
+    wantarray ? @$pi : $pi;
 }
 
 sub BUILDARGS {
@@ -210,12 +218,60 @@ sub configure_dist {
     }
 }
 
+sub _parse_build_target { 
+    $_[0]->make ne "./Build" && "all";
+}
+
+sub _parse_install_target {
+    my ($self) = @_;
+
+    $self->make eq "./Build" and return;
+
+    my $jail    = $self->jail;
+    my $wrksrc  = $self->wrksrc;
+    my $dest    = $jail->jpath($self->destdir);
+
+    # MP uses while (<>) without localising $_
+    local $_;
+    my $M = Makefile::Parser->new;
+    $M->parse($jail->hpath("$wrksrc/Makefile"))
+        # if we can't parse it, just assume 'install' will work
+        or return;
+
+    my @cmds;
+    if (my $t = $M->target("doc_site_install")) {
+        push @cmds, $t->commands;
+    }
+
+    my $t = $M->target("install") or return;
+    if (my @d = grep !/^(?:doc|pure)_install$/, $t->depends) {
+        push @cmds, map $M->target($_)->commands, @d;
+    }
+
+    for (@cmds) {
+        no warnings "uninitialized";
+        # MP doesn't always expand variable properly
+        1 while s/\$\((\w+)\)/$M->var($1)/gea;
+        s/^[-@]{0,2} *//;
+        s/\Q$dest//g;
+    }
+
+    $self->post_install(@cmds);
+
+    # just do the standard install steps
+    return "pure_install";
+}
+
 sub make_dist {
     my ($self, $target) = @_;
 
     $self->say(1, "\u${target}ing", $self->dist->name);
-    $self->jail->injail($self->wrksrc, 
-        $self->make, ($target eq "build" ? () : $target));
+
+    my $parse = "_parse_${target}_target";
+    my @targets = ($self->can($parse) && $self->$parse) || $target;
+
+    $self->jail->injail($self->wrksrc, $self->make, @targets)
+        or $self->config->throw("Build", "$target failed");
 }
 
 sub fixup_install {
