@@ -7,6 +7,7 @@ use autodie;
 
 use CPAN::Package;
 use Cwd             qw/abs_path/;
+use Try::Tiny;
 
 $SIG{INT} = sub {
     warn "Interrupt, exiting\n";
@@ -47,6 +48,14 @@ $pkg->install_sys_pkgs($Conf->initpkgs);
 my @mods = @ARGV;
 my %tried;
 
+sub check_reqs {
+    my ($Conf, $build, $phase) = @_;
+
+    if (my @needed = $build->satisfy_reqs($phase)) {
+        $Conf->throw("Needed", \@needed);
+    }
+};
+
 while (my $mod = shift @mods) {
     my $dist        = $Conf->find(Dist => spec => $mod);
     my $distname    = $dist->name;
@@ -56,31 +65,44 @@ while (my $mod = shift @mods) {
         next;
     }
     $tried{$distname} = 1;
-    $dist->fetch;
 
-    my $build       = $Conf->find(Build => $jail, $dist);
-    $build->unpack_dist;
-    $build->read_meta("META");
+    try {
+        $dist->fetch;
 
-    my $check_reqs = sub {
-        no warnings "exiting";
-        if (my @needed = $build->satisfy_reqs($_[0])) {
-            unshift @mods, @needed, $mod;
+        my $build = $Conf->find(Build => $jail, $dist);
+        $build->unpack_dist;
+        $build->read_meta("META");
+
+        check_reqs($Conf, $build, "configure");
+        $build->configure_dist;
+        $build->read_meta("MYMETA");
+
+        check_reqs($Conf, $build, "build");
+        $build->make_dist($_) for qw/build install/;
+        $build->fixup_install;
+
+        $pkg->create_pkg($build);
+    }
+    catch {
+        unless (eval { $_->isa("CPAN::Package::Exception") }) {
+            $Conf->say(1, "$distname failed");
+            $Conf->say(2, "  $_");
+        }
+        
+        my $type = $_->type;
+        my $info = $_->info;
+
+        if ($type eq "Needed") {
+            $Conf->say(1, "Defer $distname");
             delete $tried{$distname};
-            $Conf->say(1, "Deferring for deps");
-            next;
+            unshift @mods, @$info, $mod;
+        }
+        else {
+            $Conf->say(1, "$distname failed");
+            $Conf->say(2, "  $type ($info)");
         }
     };
-
-    $check_reqs->("configure");
-    $build->configure_dist;
-    $build->read_meta("MYMETA");
-
-    $check_reqs->("build");
-    $build->make_dist($_) for qw/build install/;
-    $build->fixup_install;
-
-    $pkg->create_pkg($build);
+1
 }
 
 $jail->injail("", "sh", "-c", "$ENV{SHELL} >/dev/tty 2>&1");

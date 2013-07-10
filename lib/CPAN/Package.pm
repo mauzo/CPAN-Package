@@ -86,4 +86,10 @@ sub find {
     load_class("CPAN::Package::$class")->new($self, @args);
 }
 
+sub throw {
+    my ($self, @args) = @_;
+
+    $self->find(Exception => @args)->throw;
+}
+
 1;
