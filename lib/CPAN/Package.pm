@@ -28,6 +28,8 @@ for my $l (qw/ initpkgs /) {
     *$l = sub { @{ $_[0]{$l} } };
 }
 
+sub extradeps_for { $_[0]{extradeps}{$_[1]} // {} }
+
 sub new {
     my ($class, %conf) = @_;
 

@@ -29,6 +29,14 @@ my $Conf = CPAN::Package->new(
         mksh-r46
     ]],
 
+    extradeps   => {
+        "Authen-SASL-XS" => {
+            configure   => {
+                "Devel::CheckLib" => 0,
+            }
+        }
+    },
+
     dist        => abs_path("dist"),
     packages    => abs_path("pkg"),
     pkgdb       => abs_path("pkgdb"),

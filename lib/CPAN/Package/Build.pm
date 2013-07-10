@@ -85,9 +85,13 @@ sub needed {
         $cfreq->add_minimum($maker, 0);
     }
 
-    my $req = CPAN::Meta::Requirements->new;
+    my $req     = CPAN::Meta::Requirements->new;
     $req->add_requirements($prereq->requirements_for($_, "requires"))
         for @{$Phases{$phase}};
+
+    my $extra   = $conf->extradeps_for($self->dist->name)->{$phase};
+    $req->add_string_requirement($_, $$extra{$_})
+        for keys %$extra;
 
     my %mods;
     my $pkgdb   = $self->jail->pkgdb;
