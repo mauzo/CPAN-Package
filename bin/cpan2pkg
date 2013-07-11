@@ -1,0 +1,5 @@
+#!/opt/perl/bin/perl
+
+use App::cpan2pkg;
+
+exit App::cpan2pkg->new(@ARGV)->run;

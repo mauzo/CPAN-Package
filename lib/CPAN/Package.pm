@@ -17,7 +17,7 @@ use Scope::Guard    qw/guard/;
 for my $a (qw/ 
     jail perl prefix builtby
     cpan metadb dist packages pkgdb
-    http verb msgfh logfh errfh
+    http verbose msgfh logfh errfh
 /) {
     no strict "refs";
     *$a = sub { $_[0]{$a} };
@@ -38,7 +38,7 @@ sub new {
     $conf{metadb}   //= "http://cpanmetadb.plackperl.org/v1.0/package";
     $conf{su}       //= sub { $_[0]->system(@_[1..$#_]) };
     $conf{http}     //= HTTP::Tiny->new;
-    $conf{verb}     //= 100;
+    $conf{verbose}  //= 100;
 
     $conf{msgfh} or open $conf{msgfh}, ">&", \*STDOUT;
     $conf{errfh} or open $conf{errfh}, ">&", \*STDERR;
@@ -62,7 +62,7 @@ sub say {
     my $pfx = ("=" x $verb) . "=>";
     local $, = " ";
     say { $self->logfh } $pfx, @what;
-    $self->verb >= $verb and say { $self->msgfh } $pfx, @what;
+    $self->verbose >= $verb and say { $self->msgfh } $pfx, @what;
 }
 
 sub sayf {
