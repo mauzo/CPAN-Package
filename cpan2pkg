@@ -62,7 +62,7 @@ sub check_reqs {
 
     if (my @needed = $build->satisfy_reqs($phase)) {
         if (my $fail = first { $failed{$_} } @needed) {
-            $Conf->throw("Skip", "Already failed to build $fail");
+            $Conf->throw("Fail", "Already failed to build $fail");
         }
         $Conf->throw("Needed", \@needed);
     }
