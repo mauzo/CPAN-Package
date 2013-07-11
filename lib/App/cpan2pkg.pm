@@ -57,7 +57,8 @@ sub BUILDARGS {
         config|f=s
     /;
 
-    $opts{mods} = \@argv;
+    # reverse so we pop them off in the right order
+    $opts{mods} = [reverse @argv];
 
     \%opts;
 }
@@ -107,6 +108,86 @@ sub check_reqs {
     }
 };
 
+sub build_one_dist {
+    my ($self) = @_;
+
+    my $dist    = $self->dist;
+    my $jail    = $self->jail;
+    my $pkg     = $jail->pkgtool;
+
+    $dist->fetch;
+
+    my $build = $self->config->find(Build => $jail, $dist);
+    $self->_set(build => $build);
+    $build->unpack_dist;
+    $build->read_meta("META");
+
+    $self->check_reqs("configure");
+    $build->configure_dist;
+    $build->read_meta("MYMETA");
+
+    $self->check_reqs("build");
+    $build->make_dist($_) for qw/build install/;
+    $build->fixup_install;
+
+    $pkg->create_pkg($build);
+}
+
+sub build_failed {
+    my ($self, $ex) = @_;
+
+    my $conf = $self->config;
+    my $type = $ex->type;
+    my $info = $ex->info;
+    my $name = $self->dist->name;
+
+    if ($type eq "Needed") {
+        $conf->say(1, "Deferring $name");
+        $self->tried($name, 0);
+        $self->push_mods(@$info, $self->mod);
+    }
+    elsif ($type eq "Skip") {
+        $conf->say(1, "Skipping $name");
+        $conf->say(2, "  $info");
+    }
+    else {
+        $self->failed($name, 1);
+        $conf->say(1, "$name failed");
+        $conf->say(2, "  $type ($info)");
+    }
+}
+
+sub build_some_dists {
+    my ($self) = @_;
+
+    my $conf = $self->config;
+
+    while (my $mod = $self->pop_mod) {
+        my $dist        = $conf->find(Dist => spec => $mod);
+        my $distname    = $dist->name;
+        $self->_set(dist => $dist);
+
+        try {
+            if ($self->tried($distname)) {
+                $conf->throw("Skip", "Already tried $distname");
+                next;
+            }
+            $self->tried($distname, 1);
+
+            $self->build_one_dist;
+        }
+        catch {
+            eval { $_->isa("CPAN::Package::Exception") }
+                or $_ = $conf->find(Exception =>
+                    type    => "Fail",
+                    info    => $_,
+                );
+
+            $self->build_failed($_);
+        };
+    }
+}
+
 sub run {
     my ($self) = @_;
 
@@ -123,61 +204,7 @@ sub run {
     $jail->start;
     $pkg->install_sys_pkgs($Conf->initpkgs);
 
-    while (my $mod = $self->pop_mod) {
-        my $dist        = $Conf->find(Dist => spec => $mod);
-        my $distname    = $dist->name;
-        $self->_set(dist => $dist);
-
-        try {
-            if ($self->tried($distname)) {
-                $Conf->throw("Skip", "Already tried $distname");
-                next;
-            }
-            $self->tried($distname, 1);
-
-            $dist->fetch;
-
-            my $build = $Conf->find(Build => $jail, $dist);
-            $self->_set(build => $build);
-            $build->unpack_dist;
-            $build->read_meta("META");
-
-            $self->check_reqs("configure");
-            $build->configure_dist;
-            $build->read_meta("MYMETA");
-
-            $self->check_reqs("build");
-            $build->make_dist($_) for qw/build install/;
-            $build->fixup_install;
-
-            $pkg->create_pkg($build);
-        }
-        catch {
-            unless (eval { $_->isa("CPAN::Package::Exception") }) {
-                $Conf->say(1, "$distname failed");
-                $Conf->say(2, "  $_");
-                return;
-            }
-            
-            my $type = $_->type;
-            my $info = $_->info;
-
-            if ($type eq "Needed") {
-                $Conf->say(1, "Defer $distname");
-                $self->tried($distname, 0);
-                $self->push_mods(@$info, $mod);
-            }
-            elsif ($type eq "Skip") {
-                $Conf->say(1, "Skip $distname");
-                $Conf->say(2, "  $info");
-            }
-            else {
-                $self->failed($distname, 1);
-                $Conf->say(1, "$distname failed");
-                $Conf->say(2, "  $type ($info)");
-            }
-        };
-    }
+    $self->build_some_dists;
 
     if (my @failed = $self->failed) {
         $Conf->say(1, "Failed to build:");
