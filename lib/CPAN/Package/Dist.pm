@@ -24,6 +24,8 @@ sub fullname { join "-", map $_[0]->$_, qw/name version/ }
 sub resolve {
     my ($class, $conf, $spec) = @_;
 
+    $conf->say(1, "Resolving $spec");
+
     my $distfile;
     if ($spec =~ m!^([A-Z])([A-Z])([A-Z]+)/(.*)!) {
         $distfile = "$1/$1$2/$1$2$3/$4";

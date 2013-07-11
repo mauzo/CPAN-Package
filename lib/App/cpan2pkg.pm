@@ -139,7 +139,8 @@ sub build_failed {
     my $conf = $self->config;
     my $type = $ex->type;
     my $info = $ex->info;
-    my $name = $self->dist->name;
+    my $dist = $self->dist;
+    my $name = $dist ? $dist->name : $self->mod;
 
     if ($type eq "Needed") {
         $conf->say(1, "Deferring $name");
@@ -163,11 +164,11 @@ sub build_some_dists {
     my $conf = $self->config;
 
     while (my $mod = $self->pop_mod) {
-        my $dist        = $conf->find(Dist => spec => $mod);
-        my $distname    = $dist->name;
-        $self->_set(dist => $dist);
-
         try {
+            my $dist        = $conf->find(Dist => spec => $mod);
+            my $distname    = $dist->name;
+            $self->_set(dist => $dist);
+
             if ($self->tried($distname)) {
                 $conf->throw("Skip", "Already tried $distname");
                 next;
