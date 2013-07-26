@@ -24,6 +24,12 @@ use strict;
 
 use parent "CPAN::Package::Base";
 
+use overload 
+    q/""/   => "_str",   
+    fallback => 1;
+
+use Carp ();
+
 =head1 ATTRIBUTES
 
 These have read-only accessors.
@@ -38,7 +44,7 @@ Additional information about the exception, as specified for the type.
 
 =cut
 
-for my $s (qw/ type info /) {
+for my $s (qw/ type info _str /) {
     no strict "refs";
     *$s = sub { $_[0]{$s} };
 }
@@ -62,6 +68,8 @@ sub BUILDARGS {
         config  => $conf,
         type    => $type,
         info    => $info,
+        _str    => Carp::shortmess(
+            "CPAN::Package::Exception [$type]: $info"),
     };
 }
 
