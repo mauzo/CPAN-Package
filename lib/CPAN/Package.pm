@@ -295,6 +295,22 @@ sub find {
     load_class("CPAN::Package::$class")->new($self, @args);
 }
 
+=head2 resolve_dist
+
+    my $dist = $conf->resolve_dist($spec);
+
+Work out which distribution to build to satisfy C<$spec>. This might be
+a module name, or might be something more complicated. This uses L<<
+Dist->resolve|CPAN::Package::Dist/resolve >>.
+
+=cut
+
+sub resolve_dist {
+    my ($self, $spec) = @_;
+
+    load_class("CPAN::Package::Dist")->resolve($self, $spec);
+}
+
 =head2 throw
 
     $conf->throw(@args);

@@ -54,7 +54,7 @@ argument, and use it to set the C<config> attribute.
 sub BUILDARGS { 
     my ($class, $config, @args) = @_;
     return { 
-        config => $_[1],
+        config => $config,
         @args,
     };
 }

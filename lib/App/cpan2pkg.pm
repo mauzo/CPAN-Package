@@ -329,7 +329,7 @@ sub build_some_dists {
 
     while (my $mod = $self->pop_mod) {
         try {
-            my $dist        = $conf->find(Dist => spec => $mod);
+            my $dist        = $conf->resolve_dist($mod);
             my $distname    = $dist->name;
             $self->_set(dist => $dist);
 

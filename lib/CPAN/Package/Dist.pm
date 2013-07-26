@@ -6,15 +6,17 @@ CPAN::Package::Dist - A CPAN distribution
 
 =head1 SYNOPSIS
 
-    my $dist = $config->find(Dist => spec => "Scalar::Util");
-    say for $dist->fullname, $dist->distfile;
+    my $dist = CPAN::Package::Dist->resolve($config, "List::Util");
+    say for $dist->name, $dist->distfile;
 
     $dist->fetch;
     say $dist->tar;
 
 =head1 DESCRIPTION
 
-A Dist object represents a single CPAN distribution.
+A Dist object represents a single CPAN-like distribution. Subclasses of
+Dist represent different sources of distributions: CPAN itself, dists
+kept in VCS, and so on.
 
 =cut
 
@@ -25,6 +27,7 @@ use autodie;
 
 use parent "CPAN::Package::Base";
 
+use Class::Load         qw/load_class/;
 use Encode              qw/decode/;
 use File::Basename      qw/dirname/;
 use File::Path          qw/make_path/;
@@ -44,12 +47,13 @@ until the dist has been unpacked.
 
 =head2 distfile
 
-The path to the distribution's tarball, relative to a CPAN mirror. Set
-by L</resolve>.
+The path to the distribution's tarball, relative to a CPAN mirror. For
+non-CPAN distributions this will be under the C<L/LO/LOCAL> directory.
+Set by L</resolve>.
 
 =head2 tar
 
-The local (host) path to the downloaded tarball. Set by L</fetch>.
+The local (host) path to the downloaded tarball.
 
 =cut
 
@@ -62,10 +66,28 @@ for my $m (qw/name distfile tar/) {
 
 =head2 resolve
 
-    my %atts = CPAN::Package::Dist->resolve($config, $spec);
+    my $dist = CPAN::Package::Dist->resolve($config, $spec);
 
-This is a class method called by L</new>. It resolves a module name to a
-distribution, using the C<metadb> from C<$config>.
+This is a class method, and the usual constructor. It resolves a module
+specification to a dist, which will be in an appropriate subclass.
+C<$spec> is a string in one of the following formats:
+
+=over 4
+
+=item F<A/AU/AUTHOR/Some-Dist-1.0.tar.gz>
+
+=item F<AUTHOR/Some-Dist-1.0.tar.gz>
+
+The full path to a (real) CPAN distribution.
+
+=item F<Some::Module>
+
+A module on CPAN. This will be looked up using the config's C<metadb>.
+
+=back
+
+Subclasses are expected to implement this method to resolve their own
+specific formats.
 
 =cut
 
@@ -74,66 +96,43 @@ sub resolve {
 
     $conf->say(1, "Resolving $spec");
 
-    my $distfile;
-    if ($spec =~ m!^([A-Z])([A-Z])([A-Z]+)/(.*)!) {
-        $distfile = "$1/$1$2/$1$2$3/$4";
-    }
-    elsif ($spec !~ /[^\w:]/) {
-        my $rs = $conf->http->get("$$conf{metadb}/$spec");
-        $$rs{success} or $conf->throw(Resolve =>
-            "can't resolve module '$spec'");
-        
-        my $meta = Parse::CPAN::Meta->load_yaml_string(
-            decode "utf8", $$rs{content}
-        ) or $conf->throw(Resolve => "can't parse meta for '$spec'");
-        $distfile = $$meta{distfile};
-    }
-    else {
-        $conf->throw(Resolve => "can't resolve '$spec'");
-    }
+    my $sub;
+    for ($spec) {
+        my $A = qr/[A-Z]/;
 
-    my ($name) = $distfile =~
-            m!^ .*/ ([-A-Za-z0-9_+]+?) (?: - [0-9._]+ )? $Ext $!x
-        or $conf->throw(Resolve =>
-            "Can't parse distfile name '$distfile'");
+        m!^(?:$A/$A$A/)?$A+/!       and $sub = "CPAN";
+        m!^[\w:]+$!                 and $sub = "CPAN";
+    }
+    $sub or $conf->throw(Resolve => "can't resolve '$spec'");
 
-    $conf->say(3, "Resolved $spec to $distfile");
-    
-    return {
-        config      => $conf,
-        name        => $name,
-        distfile    => $distfile,
-    };
+    my $dist = load_class("$class\::$sub")
+        ->resolve($conf, $spec);
+
+    $conf->sayf(2, "Resolved to %s", $dist->distfile);
+    $dist;
 }
 
 =head2 new
 
-    my $dist = CPAN::Package::Dist->new($config, 
-        spec => "Scalar::Util");
-    my $dist = CPAN::Package::Dist->new($config,
-        name    => "List-Util",
-        version => "1.0",
-    );
+    my $dist = CPAN::Package::Dist->new($config, %attrs);
 
-This is the constructor. If you pass a single C<spec> argument, this
-should be a module name. It will be resolved with L</resolve> and
-C<name>, C<version> and C<distfile> set from the results. Alternatively,
-if you pass C<name> and C<version> arguments, C<distfile> will remain
-unset, so the dist will not be fetchable.
+This is the constructor. The hashref of attributes is usually created by
+the L</resolve> method.
 
 =cut
 
-sub BUILDARGS {
-    my ($class, $conf, %args) = @_;
+sub BUILD {
+    my ($self) = @_;
+    
+    my $conf    = $self->config;
+    my $dist    = $self->distfile;
 
-    if (my $spec = $args{spec}) {
-        return $class->resolve($conf, $spec);
-    }
+    my ($name)  = $dist =~
+            m!^ .*/ ([-A-Za-z0-9_+]+?) (?: - [0-9._]+ )? $Ext $!x
+        or $conf->throw(Resolve =>
+            "Can't parse distfile name '$dist'");
 
-    return {
-        %args,
-        config  => $conf,
-    };
+    $self->_set(name => $name, tar => "$$conf{dist}/$dist");
 }
 
 =head2 fetch
@@ -146,28 +145,7 @@ C<Fetch> L<exception|CPAN::Package::Exception>.
 
 =cut
 
-sub fetch {
-    my ($self) = @_;
-
-    my $conf    = $self->config;
-    my $dist    = $self->distfile
-        or $conf->throw(Fetch => "distfile is not set");
-
-    my $path    = "$$conf{dist}/$dist";
-    my $url     = "$$conf{cpan}/authors/id/$dist";
-
-    $self->say(1, "Fetching $dist");
-
-    make_path dirname $path;
-
-    my $rs = $conf->http->mirror($url, $path);
-    $$rs{success} or $conf->throw(Fetch =>
-        "Fetch for $dist failed: $$rs{reason}");
-    $$rs{status} == 304 and $self->say(2, "Already fetched");
-
-    $self->_set(tar => $path);
-    return $path;
-}
+sub fetch { ... }
 
 1;
 
