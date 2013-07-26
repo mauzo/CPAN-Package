@@ -305,7 +305,7 @@ sub build_failed {
         $conf->say(2, "  $info");
     }
     else {
-        $self->failed($name, 1);
+        $self->failed($self->mod, 1);
         $conf->say(1, "$name failed");
         $conf->say(2, "  $type ($info)");
     }
@@ -343,10 +343,7 @@ sub build_some_dists {
         }
         catch {
             eval { $_->isa("CPAN::Package::Exception") }
-                or $_ = $conf->find(Exception =>
-                    type    => "Fail",
-                    info    => $_,
-                );
+                or $_ = $conf->find(Exception => Fail => $_);
 
             $self->build_failed($_);
         };
