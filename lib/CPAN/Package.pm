@@ -222,7 +222,7 @@ sub extradeps_for { $_[0]{extradeps}{$_[1]} // {} }
 =head2 sayf
 
     $conf->say(1, "Starting build");
-    $conf->sayf(2, "Building %s", $dist->name);
+    $conf->sayf(2, "Building %s", $build->name);
 
 These methods print messages to C<logfh>, and possibly to C<msgfh>. The
 first argument gives the verbosity; if it is C<< >= $conf->verbose >>

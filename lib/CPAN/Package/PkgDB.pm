@@ -269,7 +269,8 @@ version) twice. Attempting to do so will throw an exception.
 sub register_build {
     my ($self, $build, $deps) = @_;
 
-    my $dist    = $build->dist;
+    my $name    = $build->name;
+    my $version = $build->version;
     my $mods    = $build->provides;
 
     my $dbh = $self->dbh;
@@ -280,21 +281,21 @@ sub register_build {
             insert into dist (name, version, type)
             values (?, ?, 'pkg')
 SQL
-        undef, $dist->name, $dist->version,
+        undef, $name, $version,
     );
     my $distid = $dbh->selectrow_array("select last_insert_rowid()");
 
-    $self->sayf(3, "%s-%s provides:", $dist->name, $dist->version);
+    $self->say(3, "$name-$version provides:");
 
-    while (my ($name, $m) = each %$mods) {
+    while (my ($n, $m) = each %$mods) {
         $dbh->do(
             <<SQL,
                 insert into module (name, version, dist)
                 values (?, ?, ?)
 SQL
-            undef, $name, $$m{version}, $distid,
+            undef, $n, $$m{version}, $distid,
         );
-        $self->say(3, "  $name $$m{version}");
+        $self->say(3, "  $n $$m{version}");
     }
 
     $dbh->commit;

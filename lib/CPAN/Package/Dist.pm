@@ -38,11 +38,9 @@ These have read-only accessors, though some are set by other methods.
 
 =head2 name
 
-The name of the distribution, without version.
-
-=head2 version
-
-The version of the distribution.
+A suitable name to give this distribution. It may not be the same as the
+distribution name inside the F<META.json> file, since we can't read that
+until the dist has been unpacked.
 
 =head2 distfile
 
@@ -55,7 +53,7 @@ The local (host) path to the downloaded tarball. Set by L</fetch>.
 
 =cut
 
-for my $m (qw/name version distfile tar/) {
+for my $m (qw/name distfile tar/) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
@@ -80,7 +78,7 @@ sub resolve {
     if ($spec =~ m!^([A-Z])([A-Z])([A-Z]+)/(.*)!) {
         $distfile = "$1/$1$2/$1$2$3/$4";
     }
-    else {
+    elsif ($spec !~ /[^\w:]/) {
         my $rs = $conf->http->get("$$conf{metadb}/$spec");
         $$rs{success} or $conf->throw(Resolve =>
             "can't resolve module '$spec'");
@@ -90,9 +88,12 @@ sub resolve {
         ) or $conf->throw(Resolve => "can't parse meta for '$spec'");
         $distfile = $$meta{distfile};
     }
+    else {
+        $conf->throw(Resolve => "can't resolve '$spec'");
+    }
 
-    my ($name, $version) = $distfile =~
-            m!^ .*/ ([-A-Za-z0-9_+]+) - ([^-]+) $Ext $!x
+    my ($name) = $distfile =~
+            m!^ .*/ ([-A-Za-z0-9_+]+?) (?: - [0-9._]+ )? $Ext $!x
         or $conf->throw(Resolve =>
             "Can't parse distfile name '$distfile'");
 
@@ -101,7 +102,6 @@ sub resolve {
     return {
         config      => $conf,
         name        => $name,
-        version     => $version,
         distfile    => $distfile,
     };
 }
@@ -135,14 +135,6 @@ sub BUILDARGS {
         config  => $conf,
     };
 }
-
-=head2 fullname
-
-The full name of the distribution, in the form F<List-Util-1.0>.
-
-=cut
-
-sub fullname { join "-", map $_[0]->$_, qw/name version/ }
 
 =head2 fetch
 

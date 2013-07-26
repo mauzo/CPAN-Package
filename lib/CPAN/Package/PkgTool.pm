@@ -127,7 +127,7 @@ sub install_my_pkgs {
     my @new = 
         grep !$self->is_installed($_),
         map "$$_{name}-$$_{version}",
-        map $self->pkg_for_dist($_),
+        map $self->pkg_for_dist(%$_),
         @dists
         or return;
     $self->_pkg("", "add",
@@ -191,12 +191,11 @@ L</install_my_pkgs> to install the corresponding package.
 =cut
 
 sub pkg_for_dist {
-    my ($self, $dist) = @_;
-    my $name = $dist->name;
+    my ($self, %dist) = @_;
     return {
-        name    => "cpan2pkg-$name",
-        version => $dist->version,
-        origin  => "cpan2pkg/$name",
+        name    => "cpan2pkg-$dist{name}",
+        version => $dist{version},
+        origin  => "cpan2pkg/$dist{name}",
     };
 }
 
@@ -220,8 +219,7 @@ sub deps_for_build {
             version => "5.16.3", 
             origin  => "lang/opt-perl",
         },
-        map $self->pkg_for_dist($_),
-        map $conf->find(Dist =>
+        map $self->pkg_for_dist(
             name    => $$_{dist},
             version => $$_{distver},
         ),
@@ -244,8 +242,7 @@ sub _write_manifest {
     my ($self, $build, $mandir) = @_;
 
     my $dist    = $build->dist;
-    my $name    = $dist->name;
-    my $info    = $self->pkg_for_dist($dist);
+    my $name    = $build->name;
     my @deps    = $self->deps_for_build($build);
     my $maint   = $self->config("builtby");
     my $prefix  = $self->config("prefix");
@@ -258,6 +255,11 @@ sub _write_manifest {
         @deps;
 
     $self->say(3, "Full deps:\n$deps");
+
+    my $info = $self->pkg_for_dist(
+        name    => $build->name,
+        version => $build->version,
+    );
 
     # This must not contain tabs. It upsets pkg.
     write_file "$mandir/+MANIFEST", <<MANIFEST;

@@ -71,6 +71,14 @@ C<$Config{make}>. Set by L</configure_dist>.
 This is the metadata read from F<{,MY}META.{json,yml}>. Set by
 L</read_meta>.
 
+=head2 name
+
+The name of the distribution we are building. Set by L</read_meta>.
+
+=head2 version
+
+The version of the distribution we are building. Set by L</read_meta>.
+
 =head2 wrkdir
 
 This is the directory created for this build, containing C<wrksrc>,
@@ -86,6 +94,11 @@ L</unpack_dist>.
 for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
+}
+
+for my $d (qw/ name version /) {
+    no strict "refs";
+    *$d = sub { $_[0]->meta->$d };
 }
 
 =head2 post_install
@@ -227,7 +240,7 @@ sub needed {
     $req->add_requirements($prereq->requirements_for($_, "requires"))
         for @{$Phases{$phase}};
 
-    my $extra   = $conf->extradeps_for($self->dist->name)->{$phase};
+    my $extra   = $conf->extradeps_for($self->name)->{$phase};
     $req->add_string_requirement($_, $$extra{$_})
         for keys %$extra;
 
@@ -273,12 +286,12 @@ sub satisfy_reqs {
     my $req     = $self->needed($phase);
 
     for my $d (@{$$req{pkg}}) {
-        my $dist = $config->find(Dist =>
+        $self->sayf(2, "Install package for %s-%s", 
+            $$d{dist}, $$d{distver});
+        $pkg->install_my_pkgs({ 
             name    => $$d{dist},
             version => $$d{distver},
-        );
-        $self->sayf(2, "Install package for %s", $dist->fullname);
-        $pkg->install_my_pkgs($dist);
+        });
     }
 
     return map $$_{module}, @{$$req{needed}};
@@ -363,7 +376,7 @@ distribution has neither F<Makefile.PL> nor F<Build.PL>.
 sub configure_dist {
     my ($self) = @_;
 
-    my $dist = $self->dist->name;
+    my $dist = $self->name;
     $self->say(1, "Configuring $dist");
 
     my $jail = $self->jail;
@@ -494,7 +507,7 @@ steps typically used by L<XML::SAX> modules.
 sub make_dist {
     my ($self, $target) = @_;
 
-    $self->say(1, "\u${target}ing", $self->dist->name);
+    $self->say(1, "\u${target}ing", $self->name);
 
     my $parse = "_parse_${target}_target";
     my @targets = ($self->can($parse) && $self->$parse) || $target;
