@@ -17,7 +17,7 @@ use List::Util      qw/first/;
 use Try::Tiny;
 use YAML::XS        qw/LoadFile/;
 
-for my $s (qw/ jail mod mods dist build verbose /) {
+for my $s (qw/ jail log mod mods dist build verbose /) {
     no strict "refs";
     *$s = sub { $_[0]{$s} };
 }
@@ -52,9 +52,10 @@ sub BUILDARGS {
     
     Getopt::Long::Configure qw/bundling/;
     GetOptionsFromArray \@argv, \my %opts, qw/
-        jail|j=s
-        verbose|v:+
         config|f=s
+        jail|j=s
+        log|l=s
+        verbose|v:+
     /;
 
     # reverse so we pop them off in the right order
@@ -70,9 +71,10 @@ sub BUILD {
     my $yaml    = LoadFile $conf;
 
     $yaml->{verbose}        += $self->verbose;
-    $yaml->{redirect_stdh}  //= 1;
+    $yaml->{redirect_stdh}  = 1;
 
     $self->jail or $self->_set(jail => delete $yaml->{jail});
+    $self->log  and $yaml->{log} = $self->log;
     
     my @su = split " ", $yaml->{su};
     $yaml->{su} = sub {
