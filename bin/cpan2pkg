@@ -3,3 +3,183 @@
 use App::cpan2pkg;
 
 exit App::cpan2pkg->new(@ARGV)->run;
+
+=head1 NAME
+
+cpan2pkg - Build OS packages from CPAN distributions
+
+=head1 SYNOPSIS
+
+B<cpan2pkg> B<-f> I<config> [B<-j> I<jail>] [B<-l> I<log>] 
+[B<-v>[I<level>]] I<module> I<...>
+
+=head1 DESCRIPTION
+
+=head2 Warning
+
+B<This is alpha code. Interfaces may change. May contain sharp edges.>
+
+cpan2pkg is a utility for turning CPAN distributions into OS packages.
+Currently the only supported package format is FreeBSD pkgng packages,
+but I hope to extend it to support other formats in the future. In order
+to keep the build self-contained, distributions are built inside a jail
+before being turned into packages; currently the only jail type
+supported is FreeBSD jails managed by B<poudriere>, but again I hope
+to extend this in future.
+
+The list of modules supplied on the command line will be built into
+packages, along with their dependencies. These packages will properly
+declare their (runtime) dependencies on each other, according to the
+CPAN metadata.
+
+=head1 OPTIONS
+
+Most of cpan2pkg's configuration is specified through the configuration
+file, but there are a few command-line options.
+
+=over 4
+
+=item B<-f> I<config>
+
+=item B<--config> I<config>
+
+This option is mandatory, and specifies the configuration file to use.
+See L</CONFIGURATION> below for the format.
+
+=item B<-j> I<jail>
+
+=item B<--jail> I<jail>
+
+This names the jail to perform the build in. It's optional because it
+can be provided in the configuration file instead. This must be a jail
+managed by B<poudriere>.
+
+=item B<-l> I<log>
+
+=item B<--log> I<log>
+
+Log all activity to I<log>. This file will be unconditionally
+overwritten. If you do not specify a logfile on the command-line or in
+the configuration, the output of commands like C<perl Makefile.PL> will
+be discarded.
+
+=item B<-v>[I<level>]
+
+=item B<--verbose> [I<level>]
+
+Increase the verbosity. Adding multiple B<-v>s, or specifying a number
+after the B<-v>, will increase the verbosity further.
+
+=back
+
+=head1 CONFIGURATION
+
+The configuration file is in YAML format, and the top level structure
+should be a mapping. The following keys are required:
+
+=over 4
+
+=item C<builtby:> I<email>
+
+Your email address. This will be included in the metadata of the
+packages.
+
+=item C<dist:> I<directory>
+
+The directory to store download distribution tarballs in. If this is a
+relative path, it is interpreted relative to the configuration file.
+
+=item C<packages:> I<directory>
+
+The directory to put the built packages in.
+
+=item C<pkgdb:> I<directory>
+
+The directory to store the package database in. This is a SQLite file
+named after the jail, and is used to keep track of which distributions
+have been built and which modules they provide.
+
+=back
+
+The remaining keys are optional.
+
+=over 4
+
+=item C<cpan:> I<URL>
+
+The URL to use as a CPAN mirror. Defaults to
+F<http://search.cpan.org/CPAN>.
+
+=item C<extradeps:> I<mapping>
+
+A mapping of extra dependencies, for distributions which do not properly
+declare (in particular) their configure-time deps. This map is keyed by
+distribution name without version (so, C<List-Util>), and should look
+like this:
+
+    extradeps:
+        Authen-SASL-XS:
+            configure:
+                Devel::CheckLib: 0
+
+that is, the first level key is the distribution name, the second-level
+the 'phase' (see L<CPAN::Meta::Prereqs>), and the third a module name
+and a CPAN version requirements string.
+
+=item C<initpkgs:> I<list>
+
+The list of packages to install when first starting the jail.
+
+=item C<jail:> I<jail name>
+
+The jail to build with. This can be specified on the command-line
+instead.
+
+=item C<metadb:> I<URL>
+
+The URL to use for looking up modules. The URL will have a slash and a
+package name appended to it, and should return a YAML document with at
+least a C<distfile:> key giving the F<A/AU/AUTHOR/Dist-File-1.00.tar.gz>
+path of the relevant distribution. Defaults to
+F<http://cpanmetadb.plackperl.org/v1.0/package>.
+
+=item C<perl:> I<path>
+
+The path to the perl to use inside the jail. Defaults to
+F</usr/bin/perl>.
+
+=item C<su:> I<string>
+
+If you need privilege to run commands inside your jail, and you are not
+running as a user that has that privilege, you can provide a command to
+use to switch to a more privileged uid. The string given will be split
+on whitespace (no quoting) and run, with the command and arguments to be
+run appended to the argument list.
+
+The command used needs to accept separate arguments on the command-line,
+and keep them separate when invoking the command (neither B<su> nor
+B<ssh> will do this). It also needs to keep stdout and stderr separate
+(B<ssh> does not do this either). B<sudo> will work properly.
+
+=item C<verbose:> I<integer>
+
+The verbosity level. Any B<-v>s on the command line will increase the
+level further.
+
+=back
+
+=head1 EXIT STATUS
+
+If all modules given were successfully built into packages, exits 0. If
+any failed to build, exits 1. Serious problems will die, which exits
+with 255.
+
+=head1 BUGS
+
+See L<CPAN::Package/BUGS>.
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>.
+
+Released under the 2-clause BSD licence.

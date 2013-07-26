@@ -1,5 +1,26 @@
 package CPAN::Package::Jail;
 
+=head1 NAME
+
+CPAN::Package::Jail - A build environment for CPAN::Package
+
+=head1 SYNOPSIS
+
+    my $jail = CPAN::Package::Jail->new($config, $name);
+    $jail->start;
+    $jail->injail(".", "ls", "-l");
+    $jail->stop;
+
+=head1 DESCRIPTION
+
+L<CPAN::Package> performs its builds inside a jail, to prevent them from
+interfering with the running system. Objects of this class represent
+these jails. Currently the only supported type of jail is a FreeBSD jail
+managed by B<poudriere>, but I hope to support other types of jail
+(plain BSD jails, ordinary chroot jails, &c.) in future.
+
+=cut
+
 use 5.010;
 use warnings;
 use strict;
@@ -10,12 +31,72 @@ use parent "CPAN::Package::Base";
 use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
 
+=head1 ATTRIBUTES
+
+All of these have read-only accessors.
+
+=head2 config
+
+The L<CPAN::Package> we are using.
+
+=head2 jname
+
+The internal name of the jail, as used by the jail manipulation
+commands.
+
+=head2 name
+
+The name of the jail, as supplied to C<new>.
+
+=head2 root
+
+The root directory of the jail in the host filesystem. This may not be
+set until after L</start> has been called.
+
+=head2 running
+
+A boolean which indicates whether or not the jail is running. Jails
+start not running. This will not track external changes to the jail's
+state.
+
+=cut
+
 for my $m (qw/ name jname root running /) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
 
 sub umount { @{ $_[0]{umount} } }
+
+=head1 METHODS
+
+=head2 new
+
+    my $jail = CPAN::Package::Jail->new($config, $name);
+
+This is the constructor. C<$name> should be the name as C<poudriere jail
+-j> understands it; C<jname> will be set to C<"$name-default">.
+
+=cut
+
+sub BUILDARGS {
+    my ($class, $config, $name) = @_;
+
+    return {
+        config  => $config,
+        name    => $name,
+        jname   => "$name-default",
+        running => 0,
+    };
+}
+
+=head2 su
+
+    $jail->su(@cmd);
+
+This simply forwards to L<< C<< $jail->config->su >>|CPAN::Package/su >>.
+
+=cut
 
 sub su {
     my ($self, @cmd) = @_;
@@ -33,6 +114,20 @@ sub mount_nullfs {
     $self->su("mkdir", "-p", $dir, $on);
     $self->su("mount", "-t", "nullfs", "-$mode", $dir, $on);
 }
+
+=head2 hpath
+
+=head2 jpath
+
+    my $hpath   = $jail->hpath($path);
+    my $jpath   = $jail->jpath($path);
+
+These methods make a path suitable for use on the host system or within
+the jail respectively. Starting the jail will have created a suitable
+temporary directory for us to work in; C<$path> will be interpreted
+relative to this directory.
+
+=cut
 
 sub jpath { "/cpan2pkg/$_[1]" }
 sub hpath { $_[0]->root . $_[0]->jpath($_[1]) }
@@ -54,16 +149,36 @@ shift
 exec "$@"
 SH
 
-sub BUILDARGS {
-    my ($class, $config, $name) = @_;
+=head2 start
 
-    return {
-        config  => $config,
-        name    => $name,
-        jname   => "$name-default",
-        running => 0,
-    };
-}
+    $jail->start
+
+Start the jail. In addition to starting the jail itself, this method
+will create a tmpfs at F</cpan2pkg> inside the jail, with the following
+contents:
+
+=over 4
+
+=item F<build>
+
+The directory in which L<wrkdirs|CPAN::Package::Build/wrkdir> are
+located.
+
+=item F<injail>
+
+A shell script used for running programs inside the jail.
+
+=item F<pkg>
+
+A nullfs mount of the L<packages directory|CPAN::Package/packages> for
+this jail.
+
+=back
+
+along with possibly other things created by the
+L<PkgTool|CPAN::Package::PkgTool/setup_jail>.
+
+=cut
 
 sub start {
     my ($self) = @_;
@@ -94,6 +209,19 @@ sub start {
     return $self;
 }
 
+=head1 injail
+
+    $jail->injail($dir, @cmd);
+
+Run a command inside the jail. C<$dir> is the working directory to use,
+and will be passed through L<jpath>. C<@cmd> is the command, as a list;
+there will be no splitting on whitespace.
+
+This uses B<jexec>, which requires root, so it will run the command via
+L</su>.
+
+=cut
+
 sub injail {
     my ($self, $dir, @cmd) = @_;
 
@@ -111,15 +239,40 @@ sub injail {
         @cmd);
 }
 
+=head2 pkgtool
+
+    my $pkg = $jail->pkgtool;
+
+Returns a L<PkgTool|CPAN::Package::PkgTool> for this jail.
+
+=cut
+
 sub pkgtool {
     my ($self) = @_;
     $self->{pkgtool} //= $self->config->find(PkgTool => $self);
 }
 
+=head2 pkgdb
+
+    my $pkgdb = $jail->pkgdb;
+
+Returns a L<PkgDB|CPAN::Package::PkgDB> for this jail.
+
+=cut
+
 sub pkgdb {
     my ($self) = @_;
     $self->{pkgdb} //= $self->config->find(PkgDB => $self);
 }
+
+=head2 stop
+
+    $jail->stop;
+
+Stops the jail and unmounts any filesystems we mounted when we started
+it.
+
+=cut
 
 sub stop {
     my ($self) = @_;
@@ -133,9 +286,30 @@ sub stop {
     $self->_set(running => 0);
 }
 
+=head2 DESTROY
+
+The destructor will stop the jail if it is running.
+
+=cut
+
 sub DESTROY {
     my ($self) = @_;
     $self->running and $self->stop;
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<CPAN::Package>.
+
+=head1 BUGS
+
+Please report bugs to L<bug-CPAN-Package@rt.cpan.org>
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>
+
+Released under the 2-clause BSD licence.
+

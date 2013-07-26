@@ -1,5 +1,23 @@
 package CPAN::Package::Dist;
 
+=head1 NAME
+
+CPAN::Package::Dist - A CPAN distribution
+
+=head1 SYNOPSIS
+
+    my $dist = $config->find(Dist => spec => "Scalar::Util");
+    say for $dist->fullname, $dist->distfile;
+
+    $dist->fetch;
+    say $dist->tar;
+
+=head1 DESCRIPTION
+
+A Dist object represents a single CPAN distribution.
+
+=cut
+
 use 5.010;
 use warnings;
 use strict;
@@ -14,12 +32,44 @@ use Parse::CPAN::Meta;
 
 my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
 
+=head1 ATTRIBUTES
+
+These have read-only accessors, though some are set by other methods.
+
+=head2 name
+
+The name of the distribution, without version.
+
+=head2 version
+
+The version of the distribution.
+
+=head2 distfile
+
+The path to the distribution's tarball, relative to a CPAN mirror. Set
+by L</resolve>.
+
+=head2 tar
+
+The local (host) path to the downloaded tarball. Set by L</fetch>.
+
+=cut
+
 for my $m (qw/name version distfile tar/) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
 
-sub fullname { join "-", map $_[0]->$_, qw/name version/ }
+=head1 METHODS
+
+=head2 resolve
+
+    my %atts = CPAN::Package::Dist->resolve($config, $spec);
+
+This is a class method called by L</new>. It resolves a module name to a
+distribution, using the C<metadb> from C<$config>.
+
+=cut
 
 sub resolve {
     my ($class, $conf, $spec) = @_;
@@ -56,6 +106,23 @@ sub resolve {
     };
 }
 
+=head2 new
+
+    my $dist = CPAN::Package::Dist->new($config, 
+        spec => "Scalar::Util");
+    my $dist = CPAN::Package::Dist->new($config,
+        name    => "List-Util",
+        version => "1.0",
+    );
+
+This is the constructor. If you pass a single C<spec> argument, this
+should be a module name. It will be resolved with L</resolve> and
+C<name>, C<version> and C<distfile> set from the results. Alternatively,
+if you pass C<name> and C<version> arguments, C<distfile> will remain
+unset, so the dist will not be fetchable.
+
+=cut
+
 sub BUILDARGS {
     my ($class, $conf, %args) = @_;
 
@@ -69,6 +136,23 @@ sub BUILDARGS {
     };
 }
 
+=head2 fullname
+
+The full name of the distribution, in the form F<List-Util-1.0>.
+
+=cut
+
+sub fullname { join "-", map $_[0]->$_, qw/name version/ }
+
+=head2 fetch
+
+    $dist->fetch;
+
+This fetches the dist tarball, using the C<cpan> and C<dist> entries in
+the config. If C<distfile> is not set or the fetch fails, throws a
+C<Fetch> L<exception|CPAN::Package::Exception>.
+
+=cut
 
 sub fetch {
     my ($self) = @_;
@@ -94,3 +178,18 @@ sub fetch {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<CPAN::Package>, L<CPAN::Package::Build>.
+
+=head1 BUGS
+
+Please report bugs to L<bug-CPAN-Package@rt.cpan.org>.
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>.
+
+Released under the 2-clause BSD licence.
+

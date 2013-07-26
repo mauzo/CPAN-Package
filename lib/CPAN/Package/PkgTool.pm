@@ -1,5 +1,27 @@
 package CPAN::Package::PkgTool;
 
+=head1 NAME
+
+CPAN::Package::PkgTool - The interface to the OS package builder
+
+=head1 SYNOPSIS
+
+    my $pkg = CPAN::Package::PkgTool->new($config, $jail);
+    $pkg->setup_jail;
+
+    $pkg->install_my_pkgs($pkg->pkg_for_dist($dist));
+
+    $pkg->create_pkg($build);
+
+=head1 DESCRIPTION
+
+This class is the interface between L<CPAN::Package> and the OS
+package-building tool it is creating packages with. Currently that tool
+is always FreeBSD's B<pkg>, though in future this class will be
+subclassable to allow other package tools.
+
+=cut
+
 use 5.010;
 use warnings;
 use strict;
@@ -13,10 +35,28 @@ use File::Slurp             qw/write_file/;
 use File::Spec::Functions   qw/abs2rel/;
 use List::MoreUtils         qw/uniq/;
 
+=head1 ATTRIBUTES
+
+=head2 jail
+
+The jail this PkgTool is for.
+
+=cut
+
 for my $s (qw/ jail /) {
     no strict "refs";
     *$s = sub { $_[0]{$s} };
 }
+
+=head1 METHODS
+
+=head2 new
+
+    my $pkg = CPAN::Package::PkgTool->new($config, $jail);
+
+This is the constructor.
+
+=cut
 
 sub BUILDARGS {
     my ($class, $config, $jail) = @_;
@@ -25,6 +65,16 @@ sub BUILDARGS {
         jail    => $jail,
     };
 }
+
+=head2 setup_jail
+
+    $pkg->setup_jail;
+
+A pkgtool may need to set things up withing the jail before it can be
+used. In the case of B<pkg>, this untars a copy of B<pkg-static> from
+the F</packages/Latest/pkg.txz> package.
+
+=cut
 
 sub setup_jail {
     my ($self) = @_;
@@ -40,6 +90,16 @@ sub _pkg {
     $jail->injail($cwd, $jail->jpath("pkg-static"), @args);
 }
 
+=head2 install_sys_pkgs
+
+    $pkg->install_sys_pkgs(@pkgs);
+
+Install some packages from the system package repository (F</packages>,
+for B<poudriere> jails). C<@pkgs> is a list of package names as
+understood by the package tool.
+
+=cut
+
 sub install_sys_pkgs {
     my ($self, @pkgs) = @_;
 
@@ -50,6 +110,16 @@ sub install_sys_pkgs {
         @new
     );
 }
+
+=head2 install_my_pkgs
+
+    $pkg->install_my_pkgs(@dists);
+
+Install packages we have built. C<@dists> is a list of hashrefs as
+returned by L</pkg_for_dist>; the corresponding packages will be
+installed in the jail.
+
+=cut
 
 sub install_my_pkgs {
     my ($self, @dists) = @_;
@@ -65,6 +135,15 @@ sub install_my_pkgs {
         @new
     );
 }
+
+=head2 is_installed
+
+    $pkg->is_installed($pkg);
+
+Returns a boolean indicating whether the given package is installed.
+C<$pkg> is a package name as understood by the package tool.
+
+=cut
 
 sub is_installed {
     my ($self, $pkg) = @_;
@@ -100,6 +179,17 @@ sub _write_plist {
         );
 }
 
+=head2 pkg_for_dist
+
+    my $pkg_info = $pkg->pkg_for_dist($dist);
+
+Returns a hashref describing the properties of the package that would be
+created for C<$dist>, which is a L<Dist|CPAN::Package::Dist>. The
+contents of this hashref are unspecified, but it can be passed to
+L</install_my_pkgs> to install the corresponding package.
+
+=cut
+
 sub pkg_for_dist {
     my ($self, $dist) = @_;
     my $name = $dist->name;
@@ -109,6 +199,15 @@ sub pkg_for_dist {
         origin  => "cpan2pkg/$name",
     };
 }
+
+=head2 deps_for_build
+
+    my @deps = $pkg->deps_for_build($build);
+
+Returns a list of hashrefs (as returned by L</pkg_for_dist>), indicating
+the dependencies of the given L<Build|CPAN::Package::Build>.
+
+=cut
 
 sub deps_for_build {
     my ($self, $build) = @_;
@@ -187,6 +286,18 @@ sub _write_scripts {
         @post;
 }
 
+=head2 create_pkg
+
+    $pkg->create_pkg($build);
+
+Create a package of the given L<Build|CPAN::Package::Build>. The Build
+must have been built and installed, and had
+L<C<fixup_install>|CPAN::Package::Build/fixup_install> run on it. The
+newly-created package will be registered in the
+L<PkgDB|CPAN::Package::PkgDB>.
+
+=cut
+
 sub create_pkg {
     my ($self, $build) = @_;
 
@@ -213,3 +324,18 @@ sub create_pkg {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<CPAN::Package>.
+
+=head1 BUGS
+
+Please report bugs to L<bug-CPAN-Package@rt.cpan.org>.
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>.
+
+Released under the 2-clause BSD licence.
+

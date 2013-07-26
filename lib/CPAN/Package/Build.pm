@@ -1,5 +1,25 @@
 package CPAN::Package::Build;
 
+=head1 NAME
+
+CPAN::Package::Build - Build a single distribution
+
+=head1 SYNOPSIS
+
+    my $build = CPAN::Package::Build->new($config, $jail, $dist);
+
+    $build->unpack_dist;
+    $build->configure_dist;
+    $build->make_dist($_) for qw/build test install/;
+    $build->fixup_install;
+
+=head1 DESCRIPTION
+
+An object of this class represents a build of a single distribution in a
+single jail.
+
+=cut
+
 use 5.010;
 use warnings;
 use strict;
@@ -21,10 +41,64 @@ use List::Util              qw/first/;
 use Makefile::Parser;
 use Module::Metadata;
 
+=head1 ATTRIBUTES
+
+These all have read-only accessors, though some attributes are set as
+part of the build process. All the paths are suitable to be passed to
+L<hpath|CPAN::Package::Jail/hpath> or L<jpath|CPAN::Package::Jail/jpath>
+of the C<jail>.
+
+=head2 destdir
+
+This is the temporary root directory to install the distribution under,
+before packing it into a package. Set by L</unpack_dist>.
+
+=head2 dist
+
+The L<Dist|CPAN::Package::Dist> we are building.
+
+=head2 jail
+
+The L<Jail|CPAN::Package::Jail> we are building in.
+
+=head2 make
+
+This is the 'make' command to use, either F<./Build> or
+C<$Config{make}>. Set by L</configure_dist>.
+
+=head2 meta
+
+This is the metadata read from F<{,MY}META.{json,yml}>. Set by
+L</read_meta>.
+
+=head2 wrkdir
+
+This is the directory created for this build, containing C<wrksrc>,
+C<destdir> and possibly other things. Set by L</unpack_dist>.
+
+=head2 wrksrc
+
+This is the directory the distribution unpacked into. Set by
+L</unpack_dist>.
+
+=cut
+
 for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     no strict "refs";
     *$m = sub { $_[0]{$m} };
 }
+
+=head2 post_install
+
+    my @post_install = $build->post_install;
+    $build->post_install(@cmds);
+
+The list of post-install commands this build needs to register with the
+package created from it. Calling the accessor with arguments will push
+additional commands onto the list. Normally set by L<<
+->make_dist("install") |/make_dist >>.
+
+=cut
 
 sub post_install {
     my ($self, @new) = @_;
@@ -32,6 +106,18 @@ sub post_install {
     push @$pi, @new;
     wantarray ? @$pi : $pi;
 }
+
+=head1 METHODS
+
+=head2 new
+
+    my $build = CPAN::Package::Build->new($config, $jail, $dist);
+
+C<new> is the constructor. C<$config> is a L<CPAN::Package>, C<$jail> is a
+L<Jail|CPAN::Package::Jail>, and C<$dist> is a
+L<Dist|CPAN::Package::Dist>.
+
+=cut
 
 sub BUILDARGS {
     my ($class, $config, $jail, $dist) = @_;
@@ -41,6 +127,21 @@ sub BUILDARGS {
         dist    => $dist,
     };
 }
+
+=head2 read_meta
+
+    my $meta = $build->read_meta("MYMETA");
+
+Reads metadata from a file in C<wrksrc>, sets the C<meta> attribute, and
+returns it. The argument is the basename of the metadata file to read,
+normally F<META> before configuring and F<MYMETA> afterwards. Both
+F<.json> and F<.yml> extensions will be tried.
+
+Returns undef if the no appropriate file can be found, or if a file is
+found but cannot be read by L<CPAN::Meta>. L</unpack_dist> must be
+called first to unpack the tarball.
+
+=cut
 
 sub read_meta {
     my ($self, $file) = @_;
@@ -58,6 +159,43 @@ sub read_meta {
     }
     return;
 }
+
+=head2 needed
+
+    my $deps = $build->needed($phase);
+
+Reads the dependency specifications in the C<meta> attribute, and any
+extra in the config's C<extradeps> attribute, and works out how to
+satisfy the dependencies for C<$phase>, one of C<"configure">,
+C<"build">, C<"test"> or C<"install">. The return value is a hashref
+with the following keys:
+
+=over 4
+
+=item core
+
+This is an arrayref of the hashrefs returned by L<< PkgDB->find_module
+|CPAN::Package::PkgDB/find_module >>, indicating which requirements are
+present in the core perl distribution.
+
+=item pkg
+
+This is another arrayref like C<core>, this time indicating which
+requirements can be satisfied from already-built packages.
+
+=item needed
+
+This is another arrayref, indicating which requirements must be built
+before we can proceed. These hashrefs have two keys: C<type>, which is
+always C<"needed">, and C<module>, indicating the module required.
+
+=back
+
+If there are no configure-time dependencies specified, a dependency on
+either ExtUtils::MakeMaker or Module::Build will be generated as
+appropriate.
+
+=cut
 
 my %Phases = (
     configure   => [qw/configure/],
@@ -116,6 +254,17 @@ sub needed {
     return \%mods;
 }
 
+=head2 satisfy_reqs
+
+    my @mods = $build->satisfy_reqs($phase);
+
+Attempt to satisfy the requirements for C<$phase> (as above), and return
+a list of the C<"needed"> modules. Requirements of type C<"pkg"> will
+have their packages installed. Returns a list of modules names for
+modules which still need to be built.
+
+=cut
+
 sub satisfy_reqs {
     my ($self, $phase) = @_;
 
@@ -134,6 +283,19 @@ sub satisfy_reqs {
 
     return map $$_{module}, @{$$req{needed}};
 }
+
+=head2 unpack_dist
+
+    $build->unpack_dist;
+
+Unpacks the distribution's tarball, and sets C<wrkdir>, C<wrksrc> and
+C<destdir>. The dist must have been fetched first, by calling L<<
+Dist->fetch|CPAN::Package::Dist/fetch >>.
+
+Throws an C<Unpack>-type L<exception|CPAN::Package::Exception> if the
+unpacking fails.
+
+=cut
 
 sub unpack_dist {
     my ($self) = @_;
@@ -172,6 +334,31 @@ sub unpack_dist {
     
     return $self;
 }
+
+=head2 configure_dist
+
+    $build->configure_dist;
+
+Run the dist's configure step, either F<Makefile.PL> or F<Build.PL>. The
+build must have been unpacked first with L</unpack_dist>, and the
+C<configure> requirements satisfied.
+
+The distribution will be configured (with C<DESTDIR> or C<--destdir>) to
+install under the build's C<destdir>, so the files that should be
+packaged can be located. It will also use C<INSTALLDIRS=site>, so that
+upgraded versions of core modules do not produce packages which conflict
+with the core perl package. This requires that the perl in question be
+configured so that C<site> comes before C<perl> in C<@INC>, which is the
+default from 5.12 onwards, but earlier versions will have to have been
+built with the right Configure options.
+
+Throws a C<Configure> L<exception|CPAN::Package::Exception> if the
+configure step fails. Throws a C<Skip> exception if the configure step
+runs successfully but produces no F<Makefile>/F<Build>, indicating the
+dist does not build on this system. Throws a C<Skip> exception if the
+distribution has neither F<Makefile.PL> nor F<Build.PL>.
+
+=cut
 
 sub configure_dist {
     my ($self) = @_;
@@ -266,6 +453,44 @@ sub _parse_install_target {
     return "pure_install";
 }
 
+=head2 make_dist
+
+    $build->make_dist($target);
+
+Invoke a 'make' step for the build. C<$target> should be one of
+C<"build">, C<"test">, C<"install">, or some other target the
+distribution is known to support. Throws a C<Build>
+L<exception|CPAN::Package::Exception> if the build step fails.
+
+Before calling the build tool, this method will check if the Build
+object supports a method C<"_parse_${target}_target">. If it does, this
+method will be called, and the list of targets returned will be invoked
+instead of the original. The following 'parse' methods are implemented
+by default:
+
+=over 4
+
+=item build
+
+This simply returns C<all> instead of C<build> if we are using a
+F<Makefile>, since that is the standard name in that case.
+
+=item install
+
+For F<Makefile> builds only, this will attempt to parse the F<Makefile>
+and extract the commands for any targets run by C<install> in addition
+to C<pure_install>. If this succeeds, those commands will be appended to
+the C<post_install> attribute for the package builder to use later, and
+C<pure_install> will be returned as the target to build.
+
+This parsing process is currently rather crude, but it is sufficient for
+both the standard F<perllocal.pod> adjustments and the post-install
+steps typically used by L<XML::SAX> modules.
+
+=back
+
+=cut
+
 sub make_dist {
     my ($self, $target) = @_;
 
@@ -277,6 +502,34 @@ sub make_dist {
     $self->jail->injail($self->wrksrc, $self->make, @targets)
         or $self->config->throw("Build", "$target failed");
 }
+
+=head2 fixup_install
+
+    $build->fixup_install;
+
+This runs any post-install cleanup that needs to occur before the build
+is packaged. The build must have been compiled and installed into
+C<destdir>. Currently this consists of
+
+=over 4
+
+=item *
+
+Removing the C<destdir> from any paths in the F<.packlist> file.
+
+=item *
+
+Deleting F<perllocal.pod> to avoid unnecessary package conflicts. For
+MakeMaker builds the post-install mechanism will ensure F<perllocal.pod>
+gets updated anyway; for Module::Build builds this will not happen.
+
+=item *
+
+Removing any empty directories.
+
+=back
+
+=cut
 
 sub fixup_install {
     my ($self) = @_;
@@ -301,6 +554,15 @@ sub fixup_install {
     }
 }
 
+=head2 provides
+
+    my $modules = $build->provides;
+
+This runs L<< Module::Metadata->provides|Module::Metadata/provides >>
+against C<destdir>, and returns the result.
+
+=cut
+
 sub provides {
     my ($self) = @_;
     Module::Metadata->provides(
@@ -312,3 +574,16 @@ sub provides {
 
 1;
 
+=head1 SEE ALSO
+
+L<CPAN::Package>
+
+=head1 BUGS
+
+Please report to L<bug-CPAN-Package@rt.cpan.org>.
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>.
+
+Released under the 2-clause BSD licence.

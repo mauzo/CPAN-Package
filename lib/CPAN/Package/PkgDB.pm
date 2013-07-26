@@ -1,5 +1,22 @@
 package CPAN::Package::PkgDB;
 
+=head1 NAME
+
+CPAN::Package::PkgDB - Package database for CPAN::Package
+
+=head1 SYNOPSIS
+
+    my $db = CPAN::Package::PkgDB->new($config, $jail);
+
+=head1 DESCRIPTION
+
+L<CPAN::Package> maintains a database recording which distributions
+we've built packages from and which modules they supply. This database
+is a SQLite file named after the jail, kept under the config's C<pkgdb>
+directory.
+
+=cut
+
 use 5.010;
 use warnings;
 use strict;
@@ -14,10 +31,42 @@ use DBI;
 my $APPID   = 323737960;
 my $DBVER   = 1;
 
+=head1 ATTRIBUTES
+
+These all have read-only accessors.
+
+=head2 dbh
+
+The L<DBI> database handle.
+
+=head2 dbname
+
+The full path to the database.
+
+=head2 jail
+
+The L<Jail|CPAN::Package::Jail> this is the database for.
+
+=cut
+
 for my $s (qw/ dbh jail dbname /) {
     no strict "refs";
     *$s = sub { $_[0]{$s} };
 }
+
+=head1 METHODS
+
+=head2 new
+
+    my $db = CPAN::Package::PkgDB->new($config, $jail);
+    my $db = $jail->pkgdb;
+
+This is the constructor. This will open the database file, creating it
+if necessary, and make sure the required tables are present. If the
+database file exists and is not a CPAN::Package pkgdb, it will throw an
+exception.
+
+=cut
 
 sub BUILDARGS {
     my ($class, $config, $jail) = @_;
@@ -155,6 +204,38 @@ sub setup_db {
     $dbh->commit;
 }
 
+=head2 find_module
+
+   my $dists = $db->find_module($mod);
+
+Finds all the packages in the database which provide the given module.
+Returns an arrayref of hashrefs with the following keys:
+
+=over 4
+
+=item C<dist>
+
+The name of the distribution, without version. For C<core> distributions
+this will be C<perl>.
+
+=item C<distver>
+
+The version of the distibution.
+
+=item C<modver>
+
+The version of the requested module provided by the distribution.
+
+=item C<type>
+
+This is either C<core> to indicate a module that is present in the core
+perl installation, or C<pkg> to indicate a module we have already built
+a package for.
+
+=back
+
+=cut
+
 sub find_module {
     my ($self, $mod) = @_;
 
@@ -171,6 +252,19 @@ SQL
         $mod,
     );
 }
+
+=head2 register_build
+
+    $db->register_build($build);
+
+Registers a new package in the database. C<$build> is the
+L<Build|CPAN::Package::Build> used to build the package, from which the
+name, version and provided modules will be extracted.
+
+It is not possible to register the same distribution (same name and
+version) twice. Attempting to do so will throw an exception.
+
+=cut
 
 sub register_build {
     my ($self, $build, $deps) = @_;
@@ -207,3 +301,18 @@ SQL
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<CPAN::Package>, L<CPAN::Package::PkgTool>.
+
+=head1 BUGS
+
+Please report bugs to L<bug-CPAN-Package@rt.cpan.org>.
+
+=head1 AUTHOR
+
+Copyright 2013 Ben Morrow <ben@morrow.me.uk>
+
+Released under the 2-clause BSD licence.
+
