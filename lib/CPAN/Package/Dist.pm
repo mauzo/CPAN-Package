@@ -73,8 +73,9 @@ sub BUILDARGS {
 sub fetch {
     my ($self) = @_;
 
-    my $dist    = $self->distfile;
     my $conf    = $self->config;
+    my $dist    = $self->distfile
+        or $conf->throw(Fetch => "distfile is not set");
 
     my $path    = "$$conf{dist}/$dist";
     my $url     = "$$conf{cpan}/authors/id/$dist";
