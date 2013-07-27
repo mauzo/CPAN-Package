@@ -25,6 +25,7 @@ use parent "CPAN::Package::Base";
 
 use Carp;
 use DBI;
+use Try::Tiny;
 
 # echo -n CPAN::Package | cksum
 # SQLite claims this is 32bit, but it's actually 31bit...
@@ -276,29 +277,35 @@ sub register_build {
     my $dbh = $self->dbh;
     $dbh->begin_work;
 
-    $dbh->do(
-        <<SQL,
-            insert into dist (name, version, type)
-            values (?, ?, 'pkg')
-SQL
-        undef, $name, $version,
-    );
-    my $distid = $dbh->selectrow_array("select last_insert_rowid()");
-
-    $self->say(3, "$name-$version provides:");
-
-    while (my ($n, $m) = each %$mods) {
+    try {
         $dbh->do(
             <<SQL,
-                insert into module (name, version, dist)
-                values (?, ?, ?)
+                insert into dist (name, version, type)
+                values (?, ?, 'pkg')
 SQL
-            undef, $n, $$m{version}, $distid,
+            undef, $name, $version,
         );
-        $self->say(3, "  $n $$m{version}");
-    }
+        my $distid = $dbh->selectrow_array("select last_insert_rowid()");
 
-    $dbh->commit;
+        $self->say(3, "$name-$version provides:");
+
+        while (my ($n, $m) = each %$mods) {
+            $dbh->do(
+                <<SQL,
+                    insert into module (name, version, dist)
+                    values (?, ?, ?)
+SQL
+                undef, $n, $$m{version}, $distid,
+            );
+            $self->say(3, "  $n $$m{version}");
+        }
+
+        $dbh->commit;
+    }
+    catch {
+        $dbh->rollback;
+        die $_;
+    };
 }
 
 1;
