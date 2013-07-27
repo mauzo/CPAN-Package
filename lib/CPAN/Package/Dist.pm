@@ -28,12 +28,8 @@ use autodie;
 use parent "CPAN::Package::Base";
 
 use Class::Load         qw/load_class/;
-use Encode              qw/decode/;
-use File::Basename      qw/dirname/;
+use File::Basename      qw/dirname basename/;
 use File::Path          qw/make_path/;
-use Parse::CPAN::Meta;
-
-my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
 
 =head1 ATTRIBUTES
 
@@ -84,6 +80,11 @@ The full path to a (real) CPAN distribution.
 
 A module on CPAN. This will be looked up using the config's C<metadb>.
 
+=item Anything matching C</\.git$/>
+
+A git repo. C<master> will be checked out, unless a different branch or
+tag is specified as C<#ref>.
+
 =back
 
 Subclasses are expected to implement this method to resolve their own
@@ -102,6 +103,7 @@ sub resolve {
 
         m!^(?:$A/$A$A/)?$A+/!       and $sub = "CPAN";
         m!^[\w:]+$!                 and $sub = "CPAN";
+        m!\.git(?:#.*)?$!           and $sub = "Git";
     }
     $sub or $conf->throw(Resolve => "can't resolve '$spec'");
 
@@ -121,18 +123,33 @@ the L</resolve> method.
 
 =cut
 
+my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
+
 sub BUILD {
     my ($self) = @_;
     
     my $conf    = $self->config;
     my $dist    = $self->distfile;
 
-    my ($name)  = $dist =~
-            m!^ .*/ ([-A-Za-z0-9_+]+?) (?: - [0-9._]+ )? $Ext $!x
-        or $conf->throw(Resolve =>
-            "Can't parse distfile name '$dist'");
+    (my $name = basename $dist) =~ s/$Ext//;
 
     $self->_set(name => $name, tar => "$$conf{dist}/$dist");
+}
+
+=head2 make_tar_dir
+
+    my $tar = $dist->make_tar_dir;
+
+Create the directory of C<< $dist->tar >>, and return C<< $dist->tar >>.
+
+=cut
+
+sub make_tar_dir {
+    my ($self) = @_;
+
+    my $tar = $self->tar;
+    make_path dirname $tar;
+    $tar;
 }
 
 =head2 fetch
