@@ -171,20 +171,20 @@ can't be resolved.
 
 =cut
 
-for my $h (qw/ tried failed /) {
+for my $h (qw/ mod_tried dist_tried failed /) {
     no strict "refs";
     *$h = sub {
-        my ($self, $dist, $set) = @_;
+        my ($self, $key, $set) = @_;
 
         my $hash = $self->{$h} //= {};
         @_ < 2 and return sort keys %$hash;
         
         if (@_ > 2) {
-            $hash->{$dist} = $set;
+            $hash->{$key} = $set;
             $self->config->sayf(3, "Marking %s(%s): %s", 
-                $h, $dist, $set);
+                $h, $key, $set);
         }
-        $hash->{$dist};
+        $hash->{$key};
     };
 }
 
@@ -244,8 +244,8 @@ sub check_reqs {
     my $build   = $self->build;
 
     if (my @needed = $build->satisfy_reqs($phase)) {
-        if (my $fail = first { $self->failed($_) } @needed) {
-            $conf->throw("Fail", "Already failed to build $fail");
+        if (my $done = first { $self->mod_tried($_) } @needed) {
+            $conf->throw("Fail", "Already tried to build $done");
         }
         $conf->throw("Needed", \@needed);
     }
@@ -307,7 +307,8 @@ sub build_failed {
 
     if ($type eq "Needed") {
         $conf->say(1, "Deferring $name");
-        $self->tried($dist->distfile, 0);
+        $self->dist_tried($dist->distfile, 0);
+        $self->mod_tried($self->mod, 0);
         $self->push_mods(@$info, $self->mod);
     }
     elsif ($type eq "Skip") {
@@ -315,8 +316,7 @@ sub build_failed {
         $conf->say(2, "  $info");
     }
     else {
-        $self->failed($self->mod, 1);
-        $self->failed($dist->distfile, 1);
+        $self->failed($name, 1);
         $conf->say(1, "$name failed");
         $conf->say(2, "  $type ($info)");
     }
@@ -340,18 +340,17 @@ sub build_some_dists {
 
     while (my $mod = $self->pop_mod) {
         try {
-            $self->failed($mod)
-                and $conf->throw(Fail => "$mod has already failed");
+            $self->mod_tried($mod)
+                and $conf->throw(Skip => "already tried $mod");
+            $self->mod_tried($mod, 1);
 
             my $dist        = $conf->resolve_dist($mod);
             my $distname    = $dist->name;
             $self->_set(dist => $dist);
 
-            $self->failed($dist->distfile)
-                and $conf->throw(Fail => "$distname has already failed");
-            $self->tried($dist->distfile)
+            $self->dist_tried($dist->distfile)
                 and $conf->throw("Skip", "Already tried $distname");
-            $self->tried($dist->distfile, 1);
+            $self->dist_tried($dist->distfile, 1);
 
             $self->build_one_dist;
         }
