@@ -96,9 +96,17 @@ for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
     *$m = sub { $_[0]{$m} };
 }
 
-for my $d (qw/ name version /) {
-    no strict "refs";
-    *$d = sub { $_[0]->meta->$d };
+sub name {
+    my ($self) = @_;
+    my $meta = $self->meta // $self->dist;
+    $meta->name;
+}
+
+sub version {
+    my ($self) = @_;
+    my $meta = $self->meta
+        or $self->config->throw(Build => "no metadata for version");
+    $meta->version;
 }
 
 =head2 post_install
