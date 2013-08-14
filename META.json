@@ -1,0 +1,102 @@
+{
+   "abstract" : "Build OS packages from CPAN distributions",
+   "author" : [
+      "Copyright 2013 Ben Morrow <ben@morrow.me.uk>."
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "bsd"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "CPAN-Package",
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::More" : "0.96"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.38"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "CPAN::Meta" : "0",
+            "CPAN::Meta::Requirements" : "0",
+            "Capture::Tiny" : "0.20",
+            "Class::Load" : "0",
+            "DBD::SQLite" : "1.39",
+            "DBI" : "0",
+            "File::Find::Rule" : "0",
+            "File::Find::Rule::DirectoryEmpty" : "0",
+            "File::Slurp" : "9999.17",
+            "HTTP::Tiny" : "0",
+            "List::MoreUtils" : "0.33",
+            "Makefile::Parser" : "0",
+            "Module::Metadata" : "0",
+            "Parse::CPAN::Meta" : "0",
+            "Scope::Guard" : "0",
+            "Try::Tiny" : "0",
+            "YAML::XS" : "0",
+            "parent" : "0",
+            "perl" : "5.012000"
+         }
+      }
+   },
+   "provides" : {
+      "App::cpan2pkg" : {
+         "file" : "lib/App/cpan2pkg.pm",
+         "version" : 0
+      },
+      "CPAN::Package" : {
+         "file" : "lib/CPAN/Package.pm",
+         "version" : "1"
+      },
+      "CPAN::Package::Base" : {
+         "file" : "lib/CPAN/Package/Base.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Build" : {
+         "file" : "lib/CPAN/Package/Build.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Dist" : {
+         "file" : "lib/CPAN/Package/Dist.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Exception" : {
+         "file" : "lib/CPAN/Package/Exception.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Jail" : {
+         "file" : "lib/CPAN/Package/Jail.pm",
+         "version" : 0
+      },
+      "CPAN::Package::PkgDB" : {
+         "file" : "lib/CPAN/Package/PkgDB.pm",
+         "version" : 0
+      },
+      "CPAN::Package::PkgTool" : {
+         "file" : "lib/CPAN/Package/PkgTool.pm",
+         "version" : 0
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Package"
+      },
+      "license" : [
+         "http://opensource.org/licenses/bsd-license.php"
+      ],
+      "repository" : {
+         "url" : "http://github.com/mauzo/CPAN-Package"
+      }
+   },
+   "version" : "1"
+}

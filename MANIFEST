@@ -1,0 +1,18 @@
+bin/cpan2pkg
+Build.PL
+Changes
+lib/App/cpan2pkg.pm
+lib/CPAN/Package.pm
+lib/CPAN/Package/Base.pm
+lib/CPAN/Package/Build.pm
+lib/CPAN/Package/Dist.pm
+lib/CPAN/Package/Dist/CPAN.pm
+lib/CPAN/Package/Dist/Git.pm
+lib/CPAN/Package/Exception.pm
+lib/CPAN/Package/Jail.pm
+lib/CPAN/Package/PkgDB.pm
+lib/CPAN/Package/PkgTool.pm
+MANIFEST			This list of files
+META.json
+META.yml
+t/00use.t
