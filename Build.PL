@@ -11,7 +11,7 @@ Module::Build->new(
     },
     requires            => {
         "CPAN::Meta"                => "0",
-        "CPAN::Meta::Requirements"  => "0",
+        "CPAN::Meta::Requirements"  => "2.122",
         "Capture::Tiny"             => "0.20",
         "Class::Load"               => "0",
         "DBI"                       => "0",
