@@ -4,7 +4,7 @@
       "Copyright 2013 Ben Morrow <ben@morrow.me.uk>."
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "Module::Build version 0.4007, CPAN::Meta::Converter version 2.120630",
    "license" : [
       "bsd"
    ],
@@ -27,7 +27,7 @@
       "runtime" : {
          "requires" : {
             "CPAN::Meta" : "0",
-            "CPAN::Meta::Requirements" : "0",
+            "CPAN::Meta::Requirements" : "2.122",
             "Capture::Tiny" : "0.20",
             "Class::Load" : "0",
             "DBD::SQLite" : "1.39",
@@ -55,7 +55,7 @@
       },
       "CPAN::Package" : {
          "file" : "lib/CPAN/Package.pm",
-         "version" : "1"
+         "version" : "2"
       },
       "CPAN::Package::Base" : {
          "file" : "lib/CPAN/Package/Base.pm",
@@ -67,6 +67,14 @@
       },
       "CPAN::Package::Dist" : {
          "file" : "lib/CPAN/Package/Dist.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Dist::CPAN" : {
+         "file" : "lib/CPAN/Package/Dist/CPAN.pm",
+         "version" : 0
+      },
+      "CPAN::Package::Dist::Git" : {
+         "file" : "lib/CPAN/Package/Dist/Git.pm",
          "version" : 0
       },
       "CPAN::Package::Exception" : {
@@ -98,5 +106,5 @@
          "url" : "http://github.com/mauzo/CPAN-Package"
       }
    },
-   "version" : "1"
+   "version" : "2"
 }
