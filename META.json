@@ -55,7 +55,7 @@
       },
       "CPAN::Package" : {
          "file" : "lib/CPAN/Package.pm",
-         "version" : "2"
+         "version" : "3"
       },
       "CPAN::Package::Base" : {
          "file" : "lib/CPAN/Package/Base.pm",
@@ -106,5 +106,5 @@
          "url" : "http://github.com/mauzo/CPAN-Package"
       }
    },
-   "version" : "2"
+   "version" : "3"
 }

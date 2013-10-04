@@ -19,7 +19,7 @@ provides:
     version: 0
   CPAN::Package:
     file: lib/CPAN/Package.pm
-    version: 2
+    version: 3
   CPAN::Package::Base:
     file: lib/CPAN/Package/Base.pm
     version: 0
@@ -71,4 +71,4 @@ resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Package
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/mauzo/CPAN-Package
-version: 2
+version: 3
