@@ -31,10 +31,10 @@ use Carp;
 use Config;
 use CPAN::Meta;
 use CPAN::Meta::Requirements;
+use Cwd                     qw/abs_path/;
 use File::Find::Rule;
 use File::Find::Rule::DirectoryEmpty;
 use File::Slurp             qw/read_dir/;
-use File::Spec::Functions   qw/abs2rel/;
 use File::Path              qw/remove_tree/;
 use File::Temp              qw/tempdir/;
 use List::Util              qw/first/;
@@ -342,12 +342,20 @@ sub unpack_dist {
 
     my @contents    = read_dir $work;
     my $wrksrc      = "$wrkdir/$contents[0]";
+    my $hwrksrc     = $jail->hpath($wrksrc);
 
-    @contents != 1 || ! -d $jail->hpath($wrksrc)
+    @contents != 1 || ! -d $hwrksrc
         and $conf->throw("Unpack", 
             "does not unpack into a single directory");
 
     $self->_set(wrksrc => $wrksrc);
+
+    my $patch = abs_path "$$conf{patches}/$dist.patch";
+    if (-f $patch) {
+        $self->say(2, "Patching $dist");
+        $conf->system("patch",
+            "-d", $hwrksrc, "-i", $patch, "-p1");
+    }
 
     my $dest    = "$wrkdir/tmproot";
     mkdir $jail->hpath($dest);

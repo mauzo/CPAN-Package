@@ -120,6 +120,12 @@ The directory to store the built packages under. A subdirectory will be
 created named after the jail, so multiple jails can share a single
 package directory.
 
+=head2 patches
+
+A directory of patch files. If there is a file called
+F<I<DISTNAME>.patch> in this directory, it will be applied to
+I<DISTNAME> after unpacking it.
+
 =head2 perl
 
 The path, within the jail, to the perl to use for building. Defaults to
@@ -158,7 +164,7 @@ C<$level> is an integer from 1 to 4.
 
 for my $a (qw/ 
     jail perl prefix builtby
-    cpan metadb dist packages pkgdb
+    cpan metadb dist packages patches pkgdb
     http verbose msgfh logfh errfh
 /) {
     no strict "refs";
