@@ -26,32 +26,72 @@ use warnings;
 use strict;
 use autodie;
 
-use parent "CPAN::Package::Base";
-
 use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
+use Data::Dump qw/pp/;
+
+use Moo;
+
+extends "CPAN::Package::Base";
 
 =head1 ATTRIBUTES
 
 All of these have read-only accessors.
-
-=head2 config
-
-The L<CPAN::Package> we are using.
 
 =head2 jname
 
 The internal name of the jail, as used by the jail manipulation
 commands.
 
+=cut
+
+has jname   => is => "ro";
+
 =head2 name
 
 The name of the jail, as supplied to C<new>.
+
+=cut
+
+has name    => is => "ro";
+
+=head2 pkgtool
+
+    my $pkg = $jail->pkgtool;
+
+A L<PkgTool|CPAN::Package::PkgTool> for this jail.
+
+=cut
+
+has pkgtool => (
+    is      => "lazy",
+    builder => sub {
+        warn "CONFIG: " . pp $_[0]->config;
+        $_[0]->config->find(PkgTool => $_[0]);
+    },
+);
+
+=head2 pkgdb
+
+    my $pkgdb = $jail->pkgdb;
+
+A L<PkgDB|CPAN::Package::PkgDB> for this jail.
+
+=cut
+
+has pkgdb => (
+    is      => "lazy",
+    builder => sub { $_[0]->config->find(PkgDB => $_[0]) },
+);
 
 =head2 root
 
 The root directory of the jail in the host filesystem. This may not be
 set until after L</start> has been called.
+
+=cut
+
+has root    => is => "rwp";
 
 =head2 running
 
@@ -61,12 +101,19 @@ state.
 
 =cut
 
-for my $m (qw/ name jname root running /) {
-    no strict "refs";
-    *$m = sub { $_[0]{$m} };
-}
+has running => is => "rwp";
 
-sub umount { @{ $_[0]{umount} } }
+=head2 umount
+
+A list of mountpoints which need to be unmounted when the jail is
+stopped.
+
+=cut
+
+has umount => (
+    is      => "rwp",
+    default => sub { [] },
+);
 
 =head1 METHODS
 
@@ -82,12 +129,14 @@ This is the constructor. C<$name> should be the name as C<poudriere jail
 sub BUILDARGS {
     my ($class, $config, $name) = @_;
 
-    return {
+    my $att = {
         config  => $config,
         name    => $name,
         jname   => "$name-default",
         running => 0,
     };
+    warn "Jail::BUILDARGS: " . pp $att;
+    $att;
 }
 
 =head2 su
@@ -198,9 +247,9 @@ sub start {
     $self->mount_tmpfs($self->hpath(""));
     mkdir $self->hpath("build");
 
-    my $pkg = "$$config{packages}/$jname";
+    my $pkg = $config->packages . "/$jname";
     $self->mount_nullfs("w", $pkg, $self->hpath("pkg"));
-    $self->_set(pkg => $pkg, umount => ["pkg", ""]);
+    $self->_set(umount => ["pkg", ""]);
 
     write_file $self->hpath("injail"), $self->_injail_sh;
 
@@ -237,32 +286,6 @@ sub injail {
     $self->su("jexec", $self->jname, 
         "/bin/sh", $self->jpath("injail"), $cwd,
         @cmd);
-}
-
-=head2 pkgtool
-
-    my $pkg = $jail->pkgtool;
-
-Returns a L<PkgTool|CPAN::Package::PkgTool> for this jail.
-
-=cut
-
-sub pkgtool {
-    my ($self) = @_;
-    $self->{pkgtool} //= $self->config->find(PkgTool => $self);
-}
-
-=head2 pkgdb
-
-    my $pkgdb = $jail->pkgdb;
-
-Returns a L<PkgDB|CPAN::Package::PkgDB> for this jail.
-
-=cut
-
-sub pkgdb {
-    my ($self) = @_;
-    $self->{pkgdb} //= $self->config->find(PkgDB => $self);
 }
 
 =head2 stop

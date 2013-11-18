@@ -25,11 +25,13 @@ use warnings;
 use strict;
 use autodie;
 
-use parent "CPAN::Package::Base";
-
 use Class::Load         qw/load_class/;
 use File::Basename      qw/dirname basename/;
 use File::Path          qw/make_path/;
+
+use Moo;
+
+extends "CPAN::Package::Base";
 
 =head1 ATTRIBUTES
 
@@ -41,11 +43,19 @@ A suitable name to give this distribution. It may not be the same as the
 distribution name inside the F<META.json> file, since we can't read that
 until the dist has been unpacked.
 
+=cut
+
+has name        => is => "rwp";
+
 =head2 distfile
 
 The path to the distribution's tarball, relative to a CPAN mirror. For
 non-CPAN distributions this will be under the C<L/LO/LOCAL> directory.
 Set by L</resolve>.
+
+=cut
+
+has distfile    => is => "rwp";
 
 =head2 tar
 
@@ -53,10 +63,7 @@ The local (host) path to the downloaded tarball.
 
 =cut
 
-for my $m (qw/name distfile tar/) {
-    no strict "refs";
-    *$m = sub { $_[0]{$m} };
-}
+has tar         => is => "rwp";
 
 =head1 METHODS
 
@@ -133,7 +140,7 @@ sub BUILD {
 
     (my $name = basename $dist) =~ s/$Ext//;
 
-    $self->_set(name => $name, tar => "$$conf{dist}/$dist");
+    $self->_set(name => $name, tar => $conf->dist . "/$dist");
 }
 
 =head2 make_tar_dir

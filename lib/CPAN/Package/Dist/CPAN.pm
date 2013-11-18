@@ -3,18 +3,22 @@ package CPAN::Package::Dist::CPAN;
 use 5.012;
 use warnings;
 
-use parent "CPAN::Package::Dist";
-
 use Encode              qw/decode/;
 use File::Basename      qw/basename/;
 use Parse::CPAN::Meta;
+
+use Moo;
+
+extends "CPAN::Package::Dist";
 
 my $A = qr/[A-Z]/;
 
 sub _resolve_mod {
     my ($class, $conf, $spec) = @_;
 
-    my $rs = $conf->http->get("$$conf{metadb}/$spec");
+    my $url = $conf->metadb . "/$spec";
+    $conf->sayf(3, "META URL [%s]", $url);
+    my $rs = $conf->http->get($conf->metadb . "/$spec");
     $$rs{success} or $conf->throw(Resolve =>
         "can't resolve module '$spec'");
     
@@ -54,7 +58,7 @@ sub fetch {
     my $conf    = $self->config;
     my $dist    = $self->distfile;
     my $path    = $self->make_tar_dir;
-    my $url     = "$$conf{cpan}/authors/id/$dist";
+    my $url     = $conf->cpan . "/authors/id/$dist";
 
     $self->say(1, "Fetching $dist");
 

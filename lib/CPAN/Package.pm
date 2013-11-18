@@ -39,7 +39,8 @@ use Class::Load     qw/load_class/;
 use File::Spec::Functions   qw/devnull/;
 use HTTP::Tiny;
 use Scalar::Util    qw/blessed/;
-use Scope::Guard    qw/guard/;
+
+use Moo;
 
 =head1 ATTRIBUTES
 
@@ -50,15 +51,30 @@ These all have read-only accessors.
 Your email address. This will be included in the metadata of the build
 packages.
 
+=cut
+
+has builtby     => is => "ro";
+
 =head2 cpan
 
 The base URL of the CPAN mirror to use. Defaults to
 F<http://search.cpan.org/CPAN>.
 
+=cut
+
+has cpan        => (
+    is => "ro", 
+    default => sub { "http://search.cpan.org/CPAN" },
+);
+
 =head2 dist
 
 The directory to use for storing distfiles. This should be an absolute
 path.
+
+=cut
+
+has dist        => is => "ro";
 
 =head2 extradeps
 
@@ -79,6 +95,13 @@ that is, the first level key is the distribution name, the second-level
 the 'phase' (see L<CPAN::Meta::Prereqs>), and the third a module name
 and a CPAN version requirements string.
 
+=cut
+
+has extradeps   => (
+    is      => "ro",
+    default => sub { +{} },
+);
+
 =head2 metadb
 
 The base URL for the CPAN metadata service. Defaults to
@@ -88,25 +111,63 @@ with a top-level C<distfile> key giving the
 F<A/AU/AUTHOR/Dist-File-1.00.tar.gz> path of the distribution containing
 that module.
 
+=cut
+
+has metadb      => (
+    is      => "ro",
+    default => sub { "http://cpanmetadb.plackperl.org/v1.0/package" },
+);
+
 =head2 http
 
 The object to use for making HTTP requests. This should support the same
 interface as L<HTTP::Tiny>. Defaults to a new HTTP::Tiny object.
+
+=cut
+
+has http        => (
+    is      => "ro",
+    default => sub { HTTP::Tiny->new },
+);
 
 =head2 initpkgs
 
 A list of packages to install immediately after starting the jail. This
 is not actually used by CPAN::Package, but is used by L<App::cpan2pkg>.
 
+=cut
+
+has _initpkgs   => (
+    is          => "ro",
+    init_arg    => "initpkgs",
+    default     => sub { [] },
+);
+
+sub initpkgs { @{ $_[0]->_initpkgs } }
+
 =head2 msgfh
 
 The filehandle to use for writing messages, controlled by the
 C<verbose> setting. Defaults to a dup of C<STDOUT>.
 
+=cut
+
+has msgfh       => (
+    is      => "ro",
+    default => sub {
+        open my $MSGFH, ">&", \*STDOUT;
+        $MSGFH;
+    },
+);
+
 =head2 log
 
 A file to log all messages to, and possibly all build output. This will
 only be used if C<logfh> is not provided.
+
+=cut
+
+has log         => is => "ro";
 
 =head2 logfh
 
@@ -114,11 +175,26 @@ A filehandle to write all messages to, regardless of the C<verbose>
 setting. If this is not set and C<log> is, the C<log> file will be
 opened for writing and overwritten.
 
+=cut
+
+has logfh       => (
+    is      => "ro",
+    default => sub {
+        my $log = $_[0]->log // devnull;
+        open my $LOG, ">", $log;
+        $LOG;
+    },
+);
+
 =head2 packages
 
 The directory to store the built packages under. A subdirectory will be
 created named after the jail, so multiple jails can share a single
 package directory.
+
+=cut
+
+has packages    => is => "ro";
 
 =head2 patches
 
@@ -126,10 +202,21 @@ A directory of patch files. If there is a file called
 F<I<DISTNAME>.patch> in this directory, it will be applied to
 I<DISTNAME> after unpacking it.
 
+=cut
+
+has patches     => is => "ro";
+
 =head2 perl
 
 The path, within the jail, to the perl to use for building. Defaults to
 F</usr/bin/perl>.
+
+=cut
+
+has perl        => (
+    is      => "ro",
+    default => sub { "/usr/bin/perl" },
+);
 
 =head2 pkgdb
 
@@ -137,12 +224,31 @@ A directory to store the package databases under. These are SQLite files
 named after the jails, and they record which distributions have been
 built and which modules they provide.
 
+=cut
+
+has pkgdb       => is => "ro";
+
+=head2 prefix
+
+The prefix under which perl packages should be installed.
+
+=cut
+
+has prefix      => is => "ro";
+
 =head2 redirect_stdh
 
 Whether or not to reopen C<STDOUT> and C<STDERR> to the C<logfh>. If
 this is not done, any messages printed by the build steps will not be
 logged, but since this means manipulating global state the default is
 not to do the redirection.
+
+=cut
+
+has redirect_stdh   => (
+    is      => "ro",
+    default => sub { 0 },
+);
 
 =head2 su
 
@@ -155,6 +261,16 @@ Defaults to simply running the command directly (with C<< $conf->system
 This attribute has no accessor; instead it is invoked with the C<< ->su
 >> method.
 
+=cut
+
+has _su         => (
+    is          => "ro",
+    init_arg    => "su",
+    default     => sub {
+        sub { $_[0]->system(@_[1..$#_]) };
+    },
+);
+
 =head2 verbose
 
 Specifies how verbose the messages emitted on C<msgfh> should be.
@@ -162,19 +278,10 @@ C<$level> is an integer from 1 to 4.
 
 =cut
 
-for my $a (qw/ 
-    jail perl prefix builtby
-    cpan metadb dist packages patches pkgdb
-    http verbose msgfh logfh errfh
-/) {
-    no strict "refs";
-    *$a = sub { $_[0]{$a} };
-}
-
-for my $l (qw/ initpkgs /) {
-    no strict "refs";
-    *$l = sub { @{ $_[0]{$l} } };
-}
+has verbose     => (
+    is      => "ro",
+    default => sub { 100 },
+);
 
 =head1 METHODS
 
@@ -187,30 +294,14 @@ list of attributes.
 
 =cut
 
-sub new {
-    my ($class, %conf) = @_;
+sub BUILD {
+    my ($self) = @_;
 
-    $conf{perl}     //= "/usr/bin/perl";
-    $conf{cpan}     //= "http://search.cpan.org/CPAN";
-    $conf{metadb}   //= "http://cpanmetadb.plackperl.org/v1.0/package";
-    $conf{su}       //= sub { $_[0]->system(@_[1..$#_]) };
-    $conf{http}     //= HTTP::Tiny->new;
-    $conf{verbose}  //= 100;
-
-    $conf{msgfh} or open $conf{msgfh}, ">&", \*STDOUT;
-    $conf{errfh} or open $conf{errfh}, ">&", \*STDERR;
-
-    unless ($conf{logfh}) {
-        my $log = delete($conf{log}) // devnull;
-        open $conf{logfh}, ">", $log;
+    if ($self->redirect_stdh) {
+        my $logfh = $self->logfh;
+        open STDOUT, ">&", $logfh;
+        open STDERR, ">&", $logfh;
     }
-
-    if ($conf{redirect_stdh}) {
-        open STDOUT, ">&", $conf{logfh};
-        open STDERR, ">&", $conf{logfh};
-    }
-
-    bless \%conf, $class;
 }
 
 =head2 extradeps_for
@@ -221,7 +312,7 @@ Returns the hashref of extra deps for the given distribution.
 
 =cut
 
-sub extradeps_for { $_[0]{extradeps}{$_[1]} // {} }
+sub extradeps_for { $_[0]->extradeps->{$_[1]} // {} }
 
 =head2 say
 
@@ -282,7 +373,7 @@ Invokes the C<su> coderef.
 
 sub su {
     my ($self, @cmd) = @_;
-    $self->{su}->($self, @cmd);
+    $self->_su->($self, @cmd);
 }
 
 =head2 find

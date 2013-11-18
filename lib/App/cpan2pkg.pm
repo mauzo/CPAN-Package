@@ -16,8 +16,7 @@ use 5.010;
 use warnings;
 use strict;
 use autodie;
-
-use parent "CPAN::Package::Base";
+use strictures::disable;
 
 use CPAN::Package;
 use Cwd             qw/abs_path/;
@@ -29,6 +28,10 @@ use List::Util      qw/first/;
 use Try::Tiny;
 use YAML::XS        qw/LoadFile/;
 
+use Moo;
+
+extends "CPAN::Package::Base";
+
 =head1 DESCRIPTION
 
 This module is the implementation of L<cpan2pkg>. It handles parsing the
@@ -39,6 +42,12 @@ and building the modules specified on the command line.
 
 These all have read-only accessors. Some are modified by other methods.
 
+=cut
+
+# we have to override the config attribute to make it rwp
+
+has config  => is => "rwp";
+
 =head2 dist
 
 =head2 build
@@ -48,23 +57,44 @@ objects for the distribution currently being built. Both are cleared by
 L</pop_mod>; C<build> is set by L</build_one_dist>, and C<dist> by
 L</build_some_dists>.
 
+=cut
+
+has dist    => is  => "rwp";
+has build   => is  => "rwp";
+
 =head2 jail
 
 The L<Jail|CPAN::Package::Jail> we are working with.
+
+=cut
+
+has jail    => is => "rwp";
 
 =head2 log
 
 The logfile we are writing to.
 
+=cut
+
+has log     => is => "rwp";
+
 =head2 mod
 
 The module we are currently working on. Set by L</pop_mod>.
+
+=cut
+
+has mod     => is => "rwp";
 
 =head2 mods
 
 An arrayref containing the current list of modules still to be built.
 This arrayref should not be manipulated directly, but with the
 L</push_mods> and L</pop_mod> methods.
+
+=cut
+
+has mods    => is => "rwp";
 
 =head2 verbose
 
@@ -73,10 +103,7 @@ verbosity in the config file.
 
 =cut
 
-for my $s (qw/ jail log mod mods dist build verbose /) {
-    no strict "refs";
-    *$s = sub { $_[0]{$s} };
-}
+has verbose => is => "rwp";
 
 =head1 METHODS
 
@@ -172,11 +199,17 @@ can't be resolved.
 =cut
 
 for my $h (qw/ mod_tried dist_tried failed /) {
+    my $att = "_$h";
+    has $att => (
+        is      => "ro",
+        default => sub { +{} },
+    );
+
     no strict "refs";
     *$h = sub {
         my ($self, $key, $set) = @_;
 
-        my $hash = $self->{$h} //= {};
+        my $hash = $self->$att;
         @_ < 2 and return sort keys %$hash;
         
         if (@_ > 2) {
@@ -200,7 +233,7 @@ tried in the order they are given.
 
 sub push_mods {
     my ($self, @mods) = @_;
-    my $mods = $self->{mods} //= [];
+    my $mods = $self->mods;
     push @$mods, reverse @mods;
 }
 

@@ -6,7 +6,8 @@ CPAN::Package::Base - Base class for CPAN::Package classes
 
 =head1 SYNOPSIS
 
-    use parent "CPAN::Package::Base";
+    use Moo;
+    extends "CPAN::Package::Base";
 
     sub BUILD {...}
 
@@ -20,26 +21,23 @@ use 5.010;
 use warnings;
 use strict;
 
+use Moo;
+
+has _config => (
+   is       => "ro",
+   init_arg => "config",
+   handles  => [qw/say sayf/],
+);
+
 =head1 METHODS
 
 =head2 new
 
     $class->new($config, @args);
 
-C<new> is the constructor. It calls C<BUILDARGS> to convert its
-arguments into a hashref of attributes, then calls C<BUILD> after the
-object has been constructed. Currently, unlike Moose, only one C<BUILD>
-method is called.
-
-=cut
-
-sub new {
-    my ($class, @args) = @_;
-    my $self = $class->BUILDARGS(@args);
-    bless $self, $class;
-    $self->BUILD;
-    $self;
-}
+C<new> is the constructor. It is created by L<Moo>, so it calls
+C<BUILDARGS> to convert its arguments into a hashref of attributes, then
+calls C<BUILD> after the object has been constructed.
 
 =head2 BUILDARGS
 
@@ -59,15 +57,6 @@ sub BUILDARGS {
     };
 }
 
-=head2 BUILD
-
-C<BUILD> is present to be overridden by subclasses. The base class
-version does nothing.
-
-=cut
-
-sub BUILD { }
-
 =head2 _set
 
     $obj->_set(attr => $value);
@@ -81,7 +70,8 @@ for chaining.
 sub _set {
     my ($self, @atts) = @_;
     while (my ($k, $v) = splice @atts, 0, 2) {
-        $self->{$k} = $v;
+        my $s = "_set_$k";
+        $self->$s($v);
     }
     return $self;
 }
@@ -98,7 +88,7 @@ with a single argument, returns that attribute of the C<config>.
 
 sub config {
     my ($self, $key) = @_;
-    my $config = $$self{config};
+    my $config = $self->_config;
     defined $key or return $config;
     $config->$key;
 }
@@ -110,14 +100,6 @@ sub config {
 These pass through to C<config>.
 
 =cut
-
-for my $d (qw/ say sayf /) {
-    no strict "refs";
-    *$d = sub {
-        my ($self, @args) = @_;
-        $self->config->$d(@args);
-    };
-}
 
 1;
 

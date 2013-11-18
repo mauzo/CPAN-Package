@@ -26,14 +26,16 @@ use 5.010;
 use warnings;
 use strict;
 
-use parent "CPAN::Package::Base";
-
 use Capture::Tiny           qw/capture_stdout/;
 use Carp;
 use File::Find::Rule;
 use File::Slurp             qw/write_file/;
 use File::Spec::Functions   qw/abs2rel/;
 use List::MoreUtils         qw/uniq/;
+
+use Moo;
+
+extends "CPAN::Package::Base";
 
 =head1 ATTRIBUTES
 
@@ -43,10 +45,7 @@ The jail this PkgTool is for.
 
 =cut
 
-for my $s (qw/ jail /) {
-    no strict "refs";
-    *$s = sub { $_[0]{$s} };
-}
+has jail    => is => "ro";
 
 =head1 METHODS
 

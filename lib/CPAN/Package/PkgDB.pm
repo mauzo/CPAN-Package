@@ -21,11 +21,13 @@ use 5.010;
 use warnings;
 use strict;
 
-use parent "CPAN::Package::Base";
-
 use Carp;
 use DBI;
 use Try::Tiny;
+
+use Moo;
+
+extends "CPAN::Package::Base";
 
 # echo -n CPAN::Package | cksum
 # SQLite claims this is 32bit, but it's actually 31bit...
@@ -40,9 +42,17 @@ These all have read-only accessors.
 
 The L<DBI> database handle.
 
+=cut
+
+has dbh     => is => "rwp";
+
 =head2 dbname
 
 The full path to the database.
+
+=cut
+
+has dbname  => is => "ro";
 
 =head2 jail
 
@@ -50,10 +60,7 @@ The L<Jail|CPAN::Package::Jail> this is the database for.
 
 =cut
 
-for my $s (qw/ dbh jail dbname /) {
-    no strict "refs";
-    *$s = sub { $_[0]{$s} };
-}
+has jail    => is => "ro";
 
 =head1 METHODS
 

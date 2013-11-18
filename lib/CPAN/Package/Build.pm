@@ -25,8 +25,6 @@ use warnings;
 use strict;
 use autodie;
 
-use parent "CPAN::Package::Base";
-
 use Carp;
 use Config;
 use CPAN::Meta;
@@ -41,6 +39,10 @@ use List::Util              qw/first/;
 use Makefile::Parser;
 use Module::Metadata;
 
+use Moo;
+
+extends "CPAN::Package::Base";
+
 =head1 ATTRIBUTES
 
 These all have read-only accessors, though some attributes are set as
@@ -53,36 +55,77 @@ of the C<jail>.
 This is the temporary root directory to install the distribution under,
 before packing it into a package. Set by L</unpack_dist>.
 
+=cut
+
+has destdir     => is => "rwp";
+
 =head2 dist
 
 The L<Dist|CPAN::Package::Dist> we are building.
 
+=cut
+
+has dist        => is => "rwp";
+
 =head2 jail
 
 The L<Jail|CPAN::Package::Jail> we are building in.
+
+=cut
+
+has jail        => is => "rwp";
 
 =head2 make
 
 This is the 'make' command to use, either F<./Build> or
 C<$Config{make}>. Set by L</configure_dist>.
 
+=cut
+
+has make        => is => "rwp";
+
 =head2 meta
 
 This is the metadata read from F<{,MY}META.{json,yml}>. Set by
 L</read_meta>.
 
+=cut
+
+has meta        => is => "rwp";
+
 =head2 name
 
 The name of the distribution we are building. Set by L</read_meta>.
+
+=cut
+
+sub name {
+    my ($self) = @_;
+    my $meta = $self->meta // $self->dist;
+    $meta->name;
+}
 
 =head2 version
 
 The version of the distribution we are building. Set by L</read_meta>.
 
+=cut
+
+sub version {
+    my ($self) = @_;
+    my $meta = $self->meta
+        or $self->config->throw(Build => "no metadata for version");
+    $meta->version;
+}
+
 =head2 wrkdir
 
 This is the directory created for this build, containing C<wrksrc>,
 C<destdir> and possibly other things. Set by L</unpack_dist>.
+
+=cut
+
+has wrkdir      => is => "rwp";
 
 =head2 wrksrc
 
@@ -91,23 +134,7 @@ L</unpack_dist>.
 
 =cut
 
-for my $m (qw/ jail dist wrkdir wrksrc destdir make meta /) {
-    no strict "refs";
-    *$m = sub { $_[0]{$m} };
-}
-
-sub name {
-    my ($self) = @_;
-    my $meta = $self->meta // $self->dist;
-    $meta->name;
-}
-
-sub version {
-    my ($self) = @_;
-    my $meta = $self->meta
-        or $self->config->throw(Build => "no metadata for version");
-    $meta->version;
-}
+has wrksrc      => is => "rwp";
 
 =head2 post_install
 
@@ -121,9 +148,14 @@ additional commands onto the list. Normally set by L<<
 
 =cut
 
+has _post_install   => (
+    is      => "ro",
+    default => sub { [] },
+);
+
 sub post_install {
     my ($self, @new) = @_;
-    my $pi = $self->{post_install} //= [];
+    my $pi = $self->_post_install;
     push @$pi, @new;
     wantarray ? @$pi : $pi;
 }
@@ -350,7 +382,7 @@ sub unpack_dist {
 
     $self->_set(wrksrc => $wrksrc);
 
-    my $patch = abs_path "$$conf{patches}/$dist.patch";
+    my $patch = abs_path $conf->patches . "/$dist.patch";
     if (-f $patch) {
         $self->say(2, "Patching $dist");
         $conf->system("patch",

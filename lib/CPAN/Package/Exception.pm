@@ -22,13 +22,15 @@ exception and C<info> provides additional information.
 use warnings;
 use strict;
 
-use parent "CPAN::Package::Base";
-
 use overload 
     q/""/   => "_str",   
     fallback => 1;
 
 use Carp ();
+
+use Moo;
+
+extends "CPAN::Package::Base";
 
 =head1 ATTRIBUTES
 
@@ -38,16 +40,20 @@ These have read-only accessors.
 
 The type of exception; see L</EXCEPTION TYPES> below.
 
+=cut
+
+has type    => is => "ro";
+
 =head2 info
 
 Additional information about the exception, as specified for the type.
 
 =cut
 
-for my $s (qw/ type info _str /) {
-    no strict "refs";
-    *$s = sub { $_[0]{$s} };
-}
+has info    => is => "ro";
+
+# private attr
+has _str    => is => "ro";
 
 =head1 METHODS
 

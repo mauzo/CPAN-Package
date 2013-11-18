@@ -3,14 +3,15 @@ package CPAN::Package::Dist::Git;
 use 5.012;
 use warnings;
 
-use parent "CPAN::Package::Dist";
-
 use Capture::Tiny   qw/capture_stdout/;
 
-for my $s (qw/ repo ref rev /) {
-    no strict "refs";
-    *$s = sub { $_[0]{$s} };
-}
+use Moo;
+
+extends "CPAN::Package::Dist";
+
+has repo    => is => "ro";
+has ref     => is => "ro";
+has rev     => is => "ro";
 
 sub resolve {
     my ($class, $conf, $spec) = @_;
