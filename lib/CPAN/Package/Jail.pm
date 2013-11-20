@@ -56,18 +56,6 @@ The name of the jail, as supplied to C<new>.
 
 has name    => is => "ro";
 
-=for private
-
-A cache for C<perl -V>.
-
-=cut
-
-has _perlV  => (
-    is      => "ro",
-    lazy    => 1,
-    default => sub { +{} },
-);
-
 =head2 pkgtool
 
     my $pkg = $jail->pkgtool;
@@ -127,6 +115,55 @@ has umount => (
     is      => "rwp",
     default => sub { [] },
 );
+
+=begin private
+
+=head2 _extra_inst_args
+
+A hashref containing any extra install directory locations we should
+use. The keys are locations (C<bin>, C<script> &c.) and the values are
+paths.
+
+=cut
+
+has _extra_inst_args    => is => "lazy";
+
+sub _build__extra_inst_args {
+    my ($self)  = @_;
+
+    my %install;
+    for my $dir (qw/bin script/) {
+        my ($core, $site) = $self->perl_V("install$dir", "installsite$dir");
+        if ($core eq $site) {
+            # There is currently no satisfactory solution to the site_bin
+            # problem. Since pkg won't let me install pkgs with conflicting
+            # files, just punt for now with a real site_bin directory.
+            $install{$dir} = $core =~ s[/(?!.*/)][/site_]r;
+            $self->warn(<<W);
+INSTALLSITE\U$dir\E is set equal to INSTALL\U$dir\E. Changing it to
+W
+            $self->warnf(<<W, $install{$dir});
+[%s] to avoid conflicts.
+W
+        }
+    }
+
+    \%install;
+}
+
+=head2 _perlV
+
+A cache for C<perl -V>.
+
+=cut
+
+has _perlV  => (
+    is      => "ro",
+    lazy    => 1,
+    default => sub { +{} },
+);
+
+=end private
 
 =head1 METHODS
 

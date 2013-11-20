@@ -338,6 +338,30 @@ sub sayf {
     $self->say($verb, sprintf $fmt, @args);
 }
 
+=head2 warn
+
+=head2 warnf
+
+    $conf->warn("Foo!");
+    $conf->warnf("Bar: %s", "baz");
+
+These print a warning to C<logfh> and C<msgfh>. 
+
+=cut
+
+sub warn {
+    my ($self, $msg) = @_;
+    chomp $msg;
+    say { $self->logfh } "!!! $msg";
+    say { $self->msgfh } "!!! $msg";
+}
+
+sub warnf {
+    my ($self, $fmt, @args) = @_;
+    chomp $fmt;
+    $self->warn(sprintf $fmt, @args);
+}
+
 =head2 system
 
     $conf->system(@cmd);

@@ -26,7 +26,7 @@ use Moo;
 has _config => (
    is       => "ro",
    init_arg => "config",
-   handles  => [qw/say sayf/],
+   handles  => [qw/say sayf warn warnf/],
 );
 
 =head1 METHODS
@@ -96,6 +96,10 @@ sub config {
 =head2 say
 
 =head2 sayf
+
+=head2 warn
+
+=head2 warnf
 
 These pass through to C<config>.
 
