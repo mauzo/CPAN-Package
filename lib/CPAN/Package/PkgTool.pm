@@ -39,6 +39,34 @@ extends "CPAN::Package::Base";
 
 =head1 ATTRIBUTES
 
+=head2 core_dirs
+
+A hashref whose keys indicate directories installed by the core perl
+package, which should be omitted from generated packages. Built by
+querying the C<perlpkg>.
+
+=cut
+
+has core_dirs   => is => "lazy";
+
+sub _build_core_dirs {
+    my ($self)  = @_;
+    my $perl    = $self->perlpkg->{origin};
+    my $prefix  = $self->prefix;
+
+    s!^/!!, s!/$!! for $prefix;
+    my @prefix = $prefix;
+    push @prefix, $prefix while $prefix =~ s!/[^/]*$!!;
+
+    return {
+        map +($_, 1),
+        ".",
+        @prefix,
+        map m!/(.*)/!,
+        $self->_capture_pkg("", "query", "%D", $perl),
+    };
+}
+
 =head2 jail
 
 The jail this PkgTool is for.
@@ -46,6 +74,37 @@ The jail this PkgTool is for.
 =cut
 
 has jail    => is => "ro";
+
+=head2 perlpkg
+
+A hashref describing the package containing perl, in the format returned
+by L</package_for_dist>.
+
+=cut
+
+has perlpkg => is => "lazy";
+
+sub _build_perlpkg {
+    my ($self) = @_;
+    my $pkg = $self->_capture_pkg("", 
+        "which", "-q", $self->config("perl"));
+    my %info = split /:/, 
+        $self->_capture_pkg("", "query",
+            "name:%n:version:%v:origin:%o:prefix:%p",
+            $pkg);
+    \%info;
+}
+
+=head2 prefix
+
+The installation prefix for any packages we generate. Defaults to
+looking up the prefix of C<perlpkg>.
+
+=cut
+
+has prefix  => is => "lazy";
+
+sub _build_prefix { delete $_[0]->perlpkg->{prefix} }
 
 =head1 METHODS
 
@@ -87,6 +146,17 @@ sub _pkg {
 
     my $jail = $self->jail;
     $jail->injail($cwd, $jail->jpath("pkg-static"), @args);
+}
+
+sub _capture_pkg {
+    my ($self, @args) = @_;
+
+    my @cap = split /\n/, capture_stdout { $self->_pkg(@args) };
+    unless (wantarray) {
+        @cap > 1 and carp "pkg returned more than one line";
+        return $cap[0];
+    }
+    @cap;
 }
 
 =head2 install_sys_pkgs
@@ -156,14 +226,7 @@ sub _write_plist {
 
     my $dest    = $self->jail->hpath($build->destdir);
     my $FFR     = "File::Find::Rule";
-
-    my %core    = map +($_, 1), qw[
-        . opt opt/perl opt/perl/lib
-        opt/perl/lib/5.16.3 opt/perl/lib/5.16.3/amd64-freebsd
-        opt/perl/lib/5.16.3/amd64-freebsd/auto
-        opt/perl/lib/site_perl opt/perl/lib/site_perl/5.16.3
-        opt/perl/lib/site_perl/5.16.3/amd64-freebsd
-    ];
+    my $core    = $self->core_dirs;
 
     write_file $plist,
         (
@@ -172,7 +235,7 @@ sub _write_plist {
             $FFR->file->in($dest),
         ), (
             map "\@dirrmtry /$_\n",
-            grep !$core{$_},
+            grep !$core->{$_},
             map abs2rel($_, $dest),
             $FFR->directory->in($dest),
         );
@@ -213,11 +276,7 @@ sub deps_for_build {
     my $conf    = $self->config;
     my $req     = $build->needed("install");
     return
-        { 
-            name    => "opt-perl", 
-            version => "5.16.3", 
-            origin  => "lang/opt-perl",
-        },
+        $self->perlpkg,
         map $self->pkg_for_dist(
             name    => $$_{dist},
             version => $$_{distver},
@@ -228,13 +287,11 @@ sub deps_for_build {
 sub _all_deps {
     my ($self, $pkg) = @_;
 
-    capture_stdout {
-        $self->_pkg("", "query", 
+    map $self->_capture_pkg("", "query",
             "  %${_}n: { version: %${_}v, origin: %${_}o }",
             $$pkg{origin}
-        )
-            for "", "d";
-    };
+        ),
+        "", "d";
 }
 
 sub _write_manifest {
@@ -244,12 +301,11 @@ sub _write_manifest {
     my $name    = $build->name;
     my @deps    = $self->deps_for_build($build);
     my $maint   = $self->config("builtby");
-    my $prefix  = $self->config("prefix");
+    my $prefix  = $self->prefix;
 
     my $deps    = 
         join "\n",
         uniq
-        map split("\n"),
         map $self->_all_deps($_),
         @deps;
 

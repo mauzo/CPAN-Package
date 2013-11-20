@@ -228,14 +228,6 @@ built and which modules they provide.
 
 has pkgdb       => is => "ro";
 
-=head2 prefix
-
-The prefix under which perl packages should be installed.
-
-=cut
-
-has prefix      => is => "ro";
-
 =head2 redirect_stdh
 
 Whether or not to reopen C<STDOUT> and C<STDERR> to the C<logfh>. If

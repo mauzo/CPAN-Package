@@ -26,6 +26,7 @@ use warnings;
 use strict;
 use autodie;
 
+use Capture::Tiny   qw/capture_stdout/;
 use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
 use Data::Dump qw/pp/;
@@ -54,6 +55,18 @@ The name of the jail, as supplied to C<new>.
 =cut
 
 has name    => is => "ro";
+
+=for private
+
+A cache for C<perl -V>.
+
+=cut
+
+has _perlV  => (
+    is      => "ro",
+    lazy    => 1,
+    default => sub { +{} },
+);
 
 =head2 pkgtool
 
@@ -150,6 +163,24 @@ This simply forwards to L<< C<< $jail->config->su >>|CPAN::Package/su >>.
 sub su {
     my ($self, @cmd) = @_;
     $self->config->su(@cmd);
+}
+
+sub perl_V {
+    my ($self, @opt) = @_;
+
+    my $cache   = $self->_perlV;
+    my @need    = grep !exists $cache->{$_}, @opt;
+
+    if (@need) {
+        my $perl    = $self->config("perl");
+
+        my $V = capture_stdout {
+            $self->injail("", $perl, map "-V:$_", @need);
+        };
+        $$cache{$1} = $2 while $V =~ /^(\w+)='([^'\n]+)';$/gmsa;
+    }
+
+    @$cache{@opt};
 }
 
 sub mount_tmpfs {

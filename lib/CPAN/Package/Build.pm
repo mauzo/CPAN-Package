@@ -435,16 +435,24 @@ sub configure_dist {
     my $conf    = $self->config;
     my $perl    = $conf->perl;
 
+    my %install;
+    for my $dir (qw/bin script/) {
+        my ($core, $site) = $jail->perl_V("install$dir", "installsite$dir");
+        if ($core eq $site) {
+            # There is currently no satisfactory solution to the site_bin
+            # problem. Since pkg won't let me install pkgs with conflicting
+            # files, just punt for now with a real site_bin directory.
+            $install{$dir} = $core =~ s[/(?!.*/)][/site_]r;
+        }
+    }
+
     if (-f $jail->hpath("$work/Build.PL")) {
         $jail->injail($work, $perl, "Build.PL", 
             "--destdir",            $dest,
             "--installdirs",        "site",
-            # There is currently no satisfactory solution to the
-            # site_bin problem. Since pkg won't let me install pkgs with
-            # conflicting files, just punt for now with a real site_bin
-            # directory.
-            "--install_path",       "script=/opt/perl/site_bin",
-            "--install_path",       "bin=/opt/perl/site_bin",
+            (%install ? map +(
+                "--install_path",   "$_=$install{$_}",
+            ), keys %install : ()),
         )
             or $conf->throw("Configure", "Build.PL failed");
 
@@ -456,8 +464,9 @@ sub configure_dist {
         $jail->injail($work, $perl, "Makefile.PL", 
             "DESTDIR=$dest",
             "INSTALLDIRS=site",
-            "INSTALLSITESCRIPT=/opt/perl/site_bin",
-            "INSTALLSITEBIN=/opt/perl/site_bin",
+            (%install ? map +(
+                "INSTALLSITE\U$_\E=$install{$_}",
+            ), keys %install : ()),
         )
             or $conf->throw("Configure", "Makefile.PL failed");
 
