@@ -261,6 +261,30 @@ SQL
     );
 }
 
+=head2 already_registered
+
+    my $has = $db->already_registered($build);
+
+Checks if a given dist is already registered in the database. C<$build>
+is a L<Build|CPAN::Package::Build>, which must be in a state where it
+returns true from L<C<has_meta>|CPAN::Package::Build/has_meta>.
+
+=cut
+
+sub already_registered {
+    my ($self, $build) = @_;
+
+    my $conf    = $self->config;
+    my $name    = $build->name;
+    my $ver     = $build->version; # this might croak
+
+    $self->dbh->selectrow_array(<<SQL,
+        select 1 from dist where name = ? and version = ?
+SQL
+        undef, $name, $ver
+    );
+}
+
 =head2 register_build
 
     $db->register_build($build);

@@ -89,9 +89,14 @@ has make        => is => "rwp";
 This is the metadata read from F<{,MY}META.{json,yml}>. Set by
 L</read_meta>.
 
+=head2 has_meta
+
+Returns true if a call to L</read_meta> has read valid metadata, false
+otherwise.
+
 =cut
 
-has meta        => is => "rwp";
+has meta        => is => "rwp", predicate => 1;
 
 =head2 name
 
