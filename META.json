@@ -4,7 +4,7 @@
       "Copyright 2013 Ben Morrow <ben@morrow.me.uk>."
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4007, CPAN::Meta::Converter version 2.120630",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "bsd"
    ],
@@ -50,48 +50,38 @@
    },
    "provides" : {
       "App::cpan2pkg" : {
-         "file" : "lib/App/cpan2pkg.pm",
-         "version" : 0
+         "file" : "lib/App/cpan2pkg.pm"
       },
       "CPAN::Package" : {
          "file" : "lib/CPAN/Package.pm",
-         "version" : "3"
+         "version" : "4"
       },
       "CPAN::Package::Base" : {
-         "file" : "lib/CPAN/Package/Base.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Base.pm"
       },
       "CPAN::Package::Build" : {
-         "file" : "lib/CPAN/Package/Build.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Build.pm"
       },
       "CPAN::Package::Dist" : {
-         "file" : "lib/CPAN/Package/Dist.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Dist.pm"
       },
       "CPAN::Package::Dist::CPAN" : {
-         "file" : "lib/CPAN/Package/Dist/CPAN.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Dist/CPAN.pm"
       },
       "CPAN::Package::Dist::Git" : {
-         "file" : "lib/CPAN/Package/Dist/Git.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Dist/Git.pm"
       },
       "CPAN::Package::Exception" : {
-         "file" : "lib/CPAN/Package/Exception.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Exception.pm"
       },
       "CPAN::Package::Jail" : {
-         "file" : "lib/CPAN/Package/Jail.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/Jail.pm"
       },
       "CPAN::Package::PkgDB" : {
-         "file" : "lib/CPAN/Package/PkgDB.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/PkgDB.pm"
       },
       "CPAN::Package::PkgTool" : {
-         "file" : "lib/CPAN/Package/PkgTool.pm",
-         "version" : 0
+         "file" : "lib/CPAN/Package/PkgTool.pm"
       }
    },
    "release_status" : "stable",
@@ -106,5 +96,5 @@
          "url" : "http://github.com/mauzo/CPAN-Package"
       }
    },
-   "version" : "3"
+   "version" : "4"
 }
