@@ -174,7 +174,8 @@ sub BUILD {
     $conf       = CPAN::Package->new(%$yaml);
     $self->_set(config => $conf);
 
-    my $jail    = $self->jail;
+    my $jail    = $self->jail
+        or die "Must specify a jail!\n";
     $self->_set(jail => $conf->find(Jail => $jail));
 }
 

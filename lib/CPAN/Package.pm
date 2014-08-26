@@ -55,6 +55,8 @@ packages.
 
 has builtby     => is => "ro";
 
+has _config     => is => "ro", init_arg => "config";
+
 =head2 cpan
 
 The base URL of the CPAN mirror to use. Defaults to

@@ -85,6 +85,8 @@ has pkgdb => (
     builder => sub { $_[0]->config->find(PkgDB => $_[0]) },
 );
 
+has _pset    => is => "ro";
+
 =head2 root
 
 The root directory of the jail in the host filesystem. This may not be
@@ -163,6 +165,8 @@ has _perlV  => (
     default => sub { +{} },
 );
 
+has _pname  => is => "ro";
+
 =end private
 
 =head1 METHODS
@@ -179,11 +183,17 @@ This is the constructor. C<$name> should be the name as C<poudriere jail
 sub BUILDARGS {
     my ($class, $config, $name) = @_;
 
+    my $conf    = $config->_config->{Jail}{$name};
+    my $set     = $conf->{set};
+    my $pname   = $conf->{pname} // $name;
+
     my $att = {
         config  => $config,
         name    => $name,
-        jname   => "$name-default",
+        jname   => "$pname-default" . ($set ? "-$set" : ""),
+        _pname  => $pname,
         running => 0,
+        _pset    => $set,
     };
     warn "Jail::BUILDARGS: " . pp $att;
     $att;
@@ -303,10 +313,15 @@ sub start {
     my $config  = $self->config;
     my $jname   = $self->jname;
     my $name    = $self->name;
+    my $pname   = $self->_pname;
+    my $set     = $self->_pset;
 
     $self->say(1, "Starting jail $name");
 
-    $self->su("poudriere", "jail", "-sj", $name);
+    $self->su( "poudriere", "jail", "-s",
+        "-j", $pname, 
+        ($set ? ("-z", $set) : ()),
+    );
     $self->_set(running => 1);
 
     chomp(my $root = qx/jls -j $jname path/);
@@ -368,12 +383,17 @@ it.
 sub stop {
     my ($self) = @_;
 
+    my $set = $self->_pset;
+
     $self->sayf(1, "Stopping jail %s", $self->name);
 
     for (map $self->hpath($_), $self->umount) {
         $self->su("umount", $_);
     }
-    $self->su("poudriere", "jail", "-kj", $self->name);
+    $self->su("poudriere", "jail", "-k",
+        "-j", $self->_pname,
+        ($set ? ("-z", $set) : ()),
+    );
     $self->_set(running => 0);
 }
 
