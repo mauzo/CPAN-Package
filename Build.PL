@@ -28,6 +28,7 @@ Module::Build->new(
         "Try::Tiny"                 => "0",
         "YAML::XS"                  => "0",
         "parent"                    => "0",
+        "strictures::disable"       => "1",
 
         perl                        => "5.012000",
     },
