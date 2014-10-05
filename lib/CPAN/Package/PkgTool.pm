@@ -288,7 +288,7 @@ sub _all_deps {
     my ($self, $pkg) = @_;
 
     map $self->_capture_pkg("", "query",
-            "  %${_}n: { version: %${_}v, origin: %${_}o }",
+            qq[%${_}n: { version: "%${_}v", origin: "%${_}o" }],
             $$pkg{origin}
         ),
         "", "d";
@@ -305,6 +305,7 @@ sub _write_manifest {
 
     my $deps    = 
         join "\n",
+        map +(" " x 8) . $_,
         uniq
         map $self->_all_deps($_),
         @deps;
@@ -318,16 +319,19 @@ sub _write_manifest {
 
     # This must not contain tabs. It upsets pkg.
     write_file "$mandir/+MANIFEST", <<MANIFEST;
-name:       $$info{name}
-origin:     $$info{origin}
-version:    $$info{version}
-comment:    $name built with CPAN::Package.
-desc:       $name built with CPAN::Package.
-www:        http://search.cpan.org/dist/$name
-maintainer: $maint
-prefix:     $prefix
-deps:
+{
+    name:       "$$info{name}",
+    origin:     "$$info{origin}",
+    version:    "$$info{version}",
+    comment:    "$name built with CPAN::Package.",
+    desc:       "$name built with CPAN::Package.",
+    www:        "http://search.cpan.org/dist/$name",
+    maintainer: "$maint",
+    prefix:     "$prefix",
+    deps: {
 $deps
+    }
+}
 MANIFEST
 }
 
