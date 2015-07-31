@@ -437,10 +437,10 @@ sub run {
     my $Conf    = $self->config;
     my $jail    = $self->jail;
     my $pkg     = $jail->pkgtool;
-    my $pkgdb   = $jail->pkgdb;
 
     $jail->start;
     $pkg->install_sys_pkgs($Conf->initpkgs);
+    $jail->pkgdb;
 
     $self->build_some_dists;
 

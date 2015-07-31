@@ -21,6 +21,7 @@ use 5.010;
 use warnings;
 use strict;
 
+use Capture::Tiny   qw/capture_stdout/;
 use Carp;
 use DBI;
 use Try::Tiny;
@@ -163,9 +164,15 @@ SQL
 }
 
 sub _register_core {
-    my ($self, $perlver) = @_;
+    my ($self) = @_;
 
-    my $dbh = $self->dbh;
+    my $dbh     = $self->dbh;
+    my $jail    = $self->jail;
+
+    $jail->running or $jail->start;
+
+    my ($perlver, $bindir) = $jail->perl_V("version", "installbin")
+        or croak "Can't get perl version from jail.\n";
 
     $dbh->do(<<SQL, undef, $perlver);
         insert into dist (name, version, type)
@@ -173,10 +180,14 @@ sub _register_core {
 SQL
     my $coreid = $dbh->selectrow_array("select last_insert_rowid()");
 
-    require Module::CoreList;
-    my $mods = $Module::CoreList::version{$]};
-    for my $mod (keys %$mods) {
-        my $ver = $$mods{$mod} // "0";
+    my $corelist = capture_stdout {
+        $jail->injail(".",
+            "$bindir/corelist", "-v", $perlver, "/./");
+    };
+
+    for (split /\r?\n/, $corelist) {
+        my ($mod, $ver) = /^(\S+) (\S+)$/   or next;
+        $ver eq "undef"                     and next;
         $dbh->do(<<SQL, undef, $mod, $ver, $coreid);
             insert into module (name, version, dist)
             values (?, ?, ?)
@@ -196,7 +207,7 @@ sub setup_db {
     # application_id support.
     DBD::SQLite->VERSION(1.39);
 
-    my $dbh = $self->dbh;
+    my $dbh     = $self->dbh;
 
     $self->say(2, "Creating pkgdb");
     $dbh->begin_work;
@@ -205,7 +216,7 @@ sub setup_db {
     $dbh->do("pragma application_id = $APPID");
 
     $self->_create_tables;
-    $self->_register_core($]);
+    $self->_register_core;
 
     $dbh->do("pragma user_version = $DBVER");
 
