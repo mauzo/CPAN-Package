@@ -340,6 +340,59 @@ SQL
     };
 }
 
+=head2 find_matching_dists
+
+    my @dists = $pkgdb->find_matching_dists($name, $version);
+
+Returns a list of registered dists matching C<$name> and C<$version>.
+C<$version> may be C<undef>. The list returned contains hashrefs with
+C<name> and C<version> entries.
+
+=cut
+
+sub find_matching_dists {
+    my ($self, $name, $version);
+
+    my $vsql    = defined $version ? "and version = ?" : "";
+    my $dists   = $self->dbh->selectall_arrayref(
+        "select name, version from dist where name = ? $vsql",
+        { Slice => {} }, 
+        $name, $version // (),
+    );
+
+    @$dists;
+}
+
+=head2 remove_dist
+
+    $pkgdb->remove_dist($name, $version);
+
+Removes the given dist from the database.
+
+=cut
+
+sub remove_dist {
+    my ($self, $name, $version) = @_;
+
+    my $dbh = $self->dbh;
+    $dbh->begin_work;
+    try {
+        my ($id) = $dbh->selectrow_array(
+            "select id from dist where name = ? and version = ?",
+            undef, $name, $version,
+        ) or die "No such dist [$name] [$version]";
+
+        $dbh->do("delete from module where dist = ?", undef, $id);
+        $dbh->do("delete from dist where id = ?", undef, $id);
+
+        $dbh->commit;
+    }
+    catch {
+        $dbh->rollback;
+        die $_;
+    };
+}
+
 1;
 
 =head1 SEE ALSO

@@ -384,6 +384,32 @@ sub create_pkg {
     $jail->pkgdb->register_build($build);
 }
 
+=head2 destroy_pkg
+
+    $pkg->destroy_pkg($name, $version);
+
+Remove any package created for the given dist. C<$version> may be
+C<undef>, in which case all versions will be removed. This method
+assumes the C<PkgDB> is in sync with the package directory.
+
+=cut
+
+sub destroy_pkg {
+    my ($self, $name, $version) = @_;
+
+    my $jail    = $self->jail;
+    my $pkgdb   = $jail->pkgdb;
+    my @dists   = $pkgdb->find_matching_dists($name, $version);
+
+    my @txz;
+    for (@dists) {
+        $self->say(2, "Destroying [$$_{name}][$$_{version}]");
+        push @txz, $jail->jpath("pkg/$$_{name}-$$_{version}.txz");
+        $pkgdb->remove_dist($$_{name}, $$_{version});
+    }
+    $jail->injail("", "rm", "-f", @txz);
+}
+
 1;
 
 =head1 SEE ALSO
