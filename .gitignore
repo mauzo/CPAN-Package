@@ -1,0 +1,6 @@
+*.bak
+Build
+_build/
+blib/
+MYMETA*
+tmp/
