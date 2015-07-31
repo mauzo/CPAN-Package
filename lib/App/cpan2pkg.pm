@@ -295,6 +295,22 @@ the distribution, and turns it into a package.
 
 =cut
 
+sub check_already_registered {
+    my ($self)  = @_;
+
+    my $build   = $self->build;
+
+    $build && $build->has_meta  or return;
+
+    my $conf    = $self->conf;
+    my $jail    = $self->jail;
+    my $pkgdb   = $jail->pkgdb;
+    my $name    = $build->name;
+
+    $pkgdb->already_registered($name)
+        and $conf->throw(Skip => "Already registered a pkg for $name");
+}
+
 sub build_one_dist {
     my ($self) = @_;
 
@@ -302,7 +318,6 @@ sub build_one_dist {
     my $dist    = $self->dist;
     my $jail    = $self->jail;
     my $pkg     = $jail->pkgtool;
-    my $pkgdb   = $jail->pkgdb;
 
     $dist->fetch;
 
@@ -310,22 +325,12 @@ sub build_one_dist {
     $self->_set(build => $build);
     $build->unpack_dist;
     $build->read_meta("META");
-
-    # There might not be a METAfile in the distribution, in which case
-    # we will have to try again after we've created a MYMETA.
-    $build->has_meta && $pkgdb->already_registered($build)
-        and $conf->throw(Skip => "Already registered a pkg for "
-            . $build->name);
+    $self->check_already_registered;
 
     $self->check_reqs("configure");
     $build->configure_dist;
     $build->read_meta("MYMETA");
-
-    # This will croak if there is no MYMETA, but we can't avoid that: we
-    # need a version to check against.
-    $pkgdb->already_registered($build)
-        and $conf->throw(Skip => "Already registered a pkg for "
-            . $build->name);
+    $self->check_already_registered;
 
     $self->check_reqs("build");
     $build->make_dist($_) for qw/build install/;

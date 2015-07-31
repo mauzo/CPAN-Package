@@ -263,11 +263,14 @@ SQL
 
 =head2 already_registered
 
-    my $has = $db->already_registered($build);
+    my $ver = $db->already_registered($build);
 
 Checks if a given dist is already registered in the database. C<$build>
 is a L<Build|CPAN::Package::Build>, which must be in a state where it
 returns true from L<C<has_meta>|CPAN::Package::Build/has_meta>.
+
+Returns the version of the registered package, or undef. Note that
+C<"0"> is a valid version number, and won't be changed to C<"0E0">.
 
 =cut
 
@@ -276,12 +279,10 @@ sub already_registered {
 
     my $conf    = $self->config;
     my $name    = $build->name;
-    my $ver     = $build->version; # this might croak
 
-    $self->dbh->selectrow_array(<<SQL,
-        select 1 from dist where name = ? and version = ?
-SQL
-        undef, $name, $ver
+    $self->dbh->selectrow_array(
+        "select version from dist where name = ?",
+        undef, $name,
     );
 }
 
