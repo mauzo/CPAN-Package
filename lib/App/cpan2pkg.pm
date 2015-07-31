@@ -302,7 +302,7 @@ sub check_already_registered {
 
     $build && $build->has_meta  or return;
 
-    my $conf    = $self->conf;
+    my $conf    = $self->config;
     my $jail    = $self->jail;
     my $pkgdb   = $jail->pkgdb;
     my $name    = $build->name;
