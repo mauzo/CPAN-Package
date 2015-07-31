@@ -7,7 +7,7 @@ build_requires:
 configure_requires:
   Module::Build: '0.38'
 dynamic_config: 1
-generated_by: 'Module::Build version 0.4205, CPAN::Meta::Converter version 2.141520'
+generated_by: 'Module::Build version 0.421, CPAN::Meta::Converter version 2.143240'
 license: bsd
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -18,7 +18,7 @@ provides:
     file: lib/App/cpan2pkg.pm
   CPAN::Package:
     file: lib/CPAN/Package.pm
-    version: '5'
+    version: '6'
   CPAN::Package::Base:
     file: lib/CPAN/Package/Base.pm
   CPAN::Package::Build:
@@ -62,4 +62,4 @@ resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Package
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/mauzo/CPAN-Package
-version: '5'
+version: '6'

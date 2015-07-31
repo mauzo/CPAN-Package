@@ -4,7 +4,7 @@
       "Copyright 2013 Ben Morrow <ben@morrow.me.uk>."
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4205",
+   "generated_by" : "Module::Build version 0.421",
    "license" : [
       "bsd"
    ],
@@ -55,7 +55,7 @@
       },
       "CPAN::Package" : {
          "file" : "lib/CPAN/Package.pm",
-         "version" : "5"
+         "version" : "6"
       },
       "CPAN::Package::Base" : {
          "file" : "lib/CPAN/Package/Base.pm"
@@ -97,5 +97,5 @@
          "url" : "http://github.com/mauzo/CPAN-Package"
       }
    },
-   "version" : "5"
+   "version" : "6"
 }
