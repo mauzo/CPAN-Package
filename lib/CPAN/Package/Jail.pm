@@ -115,8 +115,11 @@ stopped.
 
 has umount => (
     is      => "rwp",
+    reader  => "_umount",
     default => sub { [] },
 );
+
+sub umount { @{ $_[0]->_umount } }
 
 =begin private
 
@@ -183,7 +186,7 @@ This is the constructor. C<$name> should be the name as C<poudriere jail
 sub BUILDARGS {
     my ($class, $config, $name) = @_;
 
-    my $conf    = $config->_config->{Jail}{$name};
+    my $conf    = $config->config("Jail", $name) // {};
     my $set     = $conf->{set};
     my $pname   = $conf->{pname} // $name;
 

@@ -298,6 +298,27 @@ sub BUILD {
     }
 }
 
+=head2 config
+
+    my $val = $conf->config("Foo");
+
+Returns a key from the C<config> hash.
+
+=cut
+
+sub config {
+    my ($self, @keys) = @_;
+
+    my $c = $self->_config;
+
+    while (@keys) {
+        $c or return;
+        $c = $c->{$_};
+    }
+
+    return $c;
+}
+
 =head2 extradeps_for
 
     my $deps = $conf->extradeps_for("List-Util");
