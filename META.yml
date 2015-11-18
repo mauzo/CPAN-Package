@@ -62,4 +62,4 @@ resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Package
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/mauzo/CPAN-Package
-version: '6'
+version: '7'
