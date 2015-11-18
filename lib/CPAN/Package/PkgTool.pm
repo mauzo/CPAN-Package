@@ -254,6 +254,7 @@ L</install_my_pkgs> to install the corresponding package.
 
 sub pkg_for_dist {
     my ($self, %dist) = @_;
+
     return {
         name    => "cpan2pkg-$dist{name}",
         version => $dist{version},

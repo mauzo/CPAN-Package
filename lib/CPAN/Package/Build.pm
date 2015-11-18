@@ -107,7 +107,7 @@ The name of the distribution we are building. Set by L</read_meta>.
 sub name {
     my ($self) = @_;
     my $meta = $self->meta // $self->dist;
-    $meta->name;
+    $meta->name =~ s/[^-_a-zA-Z0-9]/_/gr;
 }
 
 =head2 version
@@ -120,7 +120,7 @@ sub version {
     my ($self) = @_;
     my $meta = $self->meta
         or $self->config->throw(Build => "no metadata for version");
-    $meta->version;
+    $meta->version =~ s/[^0-9.]//gr;
 }
 
 =head2 wrkdir
