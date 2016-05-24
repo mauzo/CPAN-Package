@@ -139,6 +139,14 @@ sub setup_jail {
 
     $self->jail->injail(".", "tar", "-xvf", "/packages/Latest/pkg.txz", 
         "-s,/.*/,,", "*/pkg-static");
+    mkdir $self->jail->hpath("repos");
+    write_file $self->jail->hpath("repos/poudriere.conf"), <<REPO;
+poudriere: {
+    enabled:        yes,
+    URL:            file:///packages,
+    MIRROR_TYPE:    NONE,
+}
+REPO
 }
 
 sub _pkg {
@@ -174,10 +182,10 @@ sub install_sys_pkgs {
 
     my @new = grep !$self->is_installed($_), @pkgs
         or return;
-    $self->_pkg("", "add",
-        map "/packages/All/$_.txz", 
-        @new
-    );
+    for (@new) {
+        # have to do one at a time in case they aren't there
+        $self->_pkg("", "install", "-y", $_);
+    }
 }
 
 =head2 install_my_pkgs

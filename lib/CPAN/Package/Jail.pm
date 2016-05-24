@@ -273,6 +273,9 @@ export PERL5_CPAN_IS_RUNNING=$$
 export PERL5_CPANPLUS_IS_RUNNING=$$
 export PERL_MM_USE_DEFAULT=1
 
+export ABI_FILE=/usr/lib/crt1.o
+export REPOS_DIR=/cpan2pkg/repos
+
 cd "$1"
 shift
 
