@@ -316,6 +316,7 @@ sub _write_manifest {
         join "\n",
         map +(" " x 8) . $_,
         uniq
+        sort
         map $self->_all_deps($_),
         @deps;
 
