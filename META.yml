@@ -18,7 +18,7 @@ provides:
     file: lib/App/cpan2pkg.pm
   CPAN::Package:
     file: lib/CPAN/Package.pm
-    version: '7'
+    version: '8'
   CPAN::Package::Base:
     file: lib/CPAN/Package/Base.pm
   CPAN::Package::Build:
@@ -62,4 +62,4 @@ resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Package
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/mauzo/CPAN-Package
-version: '7'
+version: '8'
