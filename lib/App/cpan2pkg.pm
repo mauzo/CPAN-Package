@@ -307,7 +307,7 @@ sub check_already_registered {
     my $pkgdb   = $jail->pkgdb;
     my $name    = $build->name;
 
-    $pkgdb->already_registered($name)
+    defined $pkgdb->already_registered($name)
         and $conf->throw(Skip => "Already registered a pkg for $name");
 }
 
