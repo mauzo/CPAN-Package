@@ -32,7 +32,7 @@ use warnings;
 use strict;
 use autodie;
 
-our $VERSION = "8";
+our $VERSION = "9";
 
 use Carp;
 use Class::Load     qw/load_class/;
