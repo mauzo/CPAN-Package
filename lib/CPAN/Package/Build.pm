@@ -560,7 +560,7 @@ steps typically used by L<XML::SAX> modules.
 sub make_dist {
     my ($self, $target) = @_;
 
-    $self->say(1, "\u${target}ing", $self->name);
+    $self->say(1, "\u${target}ing", $self->name, " ", $self->version);
 
     my $parse = "_parse_${target}_target";
     my @targets = ($self->can($parse) && $self->$parse) || $target;
