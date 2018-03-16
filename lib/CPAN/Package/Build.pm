@@ -100,7 +100,8 @@ has meta        => is => "rwp", predicate => 1;
 
 =head2 name
 
-The name of the distribution we are building. Set by L</read_meta>.
+The name of the distribution we are building. Set by L</read_meta>. This
+is sanitised to only C<[-_a-zA-Z0-9]>.
 
 =cut
 
@@ -113,6 +114,8 @@ sub name {
 =head2 version
 
 The version of the distribution we are building. Set by L</read_meta>.
+This is as specified in the metafile, so be careful: perl versions can
+be weird.
 
 =cut
 
@@ -120,7 +123,7 @@ sub version {
     my ($self) = @_;
     my $meta = $self->meta
         or $self->config->throw(Build => "no metadata for version");
-    $meta->version =~ s/[^0-9.]//gr;
+    $meta->version;
 }
 
 =head2 wrkdir

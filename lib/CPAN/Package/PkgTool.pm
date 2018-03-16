@@ -265,7 +265,7 @@ sub pkg_for_dist {
 
     return {
         name    => "cpan2pkg-$dist{name}",
-        version => $dist{version},
+        version => ($dist{version} =~ s/[^0-9.]//gr),
         origin  => "cpan2pkg/$dist{name}",
     };
 }
