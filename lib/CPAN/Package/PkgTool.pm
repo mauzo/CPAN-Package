@@ -293,16 +293,6 @@ sub deps_for_build {
         @{ $$req{pkg} };
 }
 
-sub _all_deps {
-    my ($self, $pkg) = @_;
-
-    map $self->_capture_pkg("", "query",
-            qq[%${_}n: { version: "%${_}v", origin: "%${_}o" }],
-            $$pkg{origin}
-        ),
-        "", "d";
-}
-
 sub _write_manifest {
     my ($self, $build, $mandir) = @_;
 
@@ -312,12 +302,9 @@ sub _write_manifest {
     my $maint   = $self->config("builtby");
     my $prefix  = $self->prefix;
 
-    my $deps    = 
-        join "\n",
-        map +(" " x 8) . $_,
-        uniq
-        sort
-        map $self->_all_deps($_),
+    my $deps    = join "", uniq sort map <<DEP
+        $$_{name}: { version: "$$_{version}", origin: "$$_{origin}" }
+DEP
         @deps;
 
     $self->say(3, "Full deps:\n$deps");
