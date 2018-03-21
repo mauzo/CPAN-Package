@@ -328,17 +328,17 @@ sub start {
         "-j", $pname, 
         ($set ? ("-z", $set) : ()),
     );
-    $self->_set(running => 1);
+    $self->_set_running(1);
 
     chomp(my $root = qx/jls -j $jname path/);
-    $self->_set(root => $root);
+    $self->_set_root($root);
 
     $self->mount_tmpfs($self->hpath(""));
     mkdir $self->hpath("build");
 
     my $pkg = $config->packages . "/$jname";
     $self->mount_nullfs("w", $pkg, $self->hpath("pkg"));
-    $self->_set(umount => ["pkg", ""]);
+    $self->_set_umount(["pkg", ""]);
 
     write_file $self->hpath("injail"), $self->_injail_sh;
 
@@ -400,7 +400,7 @@ sub stop {
         "-j", $self->_pname,
         ($set ? ("-z", $set) : ()),
     );
-    $self->_set(running => 0);
+    $self->_set_running(0);
 }
 
 =head2 DESTROY

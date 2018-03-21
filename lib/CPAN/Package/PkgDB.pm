@@ -45,7 +45,19 @@ The L<DBI> database handle.
 
 =cut
 
-has dbh     => is => "rwp";
+has dbh     => is => "lazy";
+
+sub _build_dbh {
+    my ($self)  = @_;
+
+    my $dbname  = $self->dbname; 
+    my $dbh     = DBI->connect(
+        "dbi:SQLite:$dbname", undef, undef, { 
+            PrintError  => 0,
+            RaiseError  => 1,
+        },
+    );
+}
 
 =head2 dbname
 
@@ -93,15 +105,6 @@ sub BUILDARGS {
 
 sub BUILD {
     my ($self) = @_;
-
-    my $dbname  = $self->dbname; 
-    my $dbh     = DBI->connect(
-        "dbi:SQLite:$dbname", undef, undef, { 
-            PrintError  => 0,
-            RaiseError  => 1,
-        },
-    );
-    $self->_set(dbh => $dbh);
 
     # this will croak for anything but an empty db
     $self->check_db_ver or $self->setup_db;

@@ -45,7 +45,11 @@ until the dist has been unpacked.
 
 =cut
 
-has name        => is => "rwp";
+has name        => is => "lazy";
+
+my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
+
+sub _build_name { basename($_[0]->distfile) =~ s/$Ext//r }
 
 =head2 distfile
 
@@ -55,7 +59,7 @@ Set by L</resolve>.
 
 =cut
 
-has distfile    => is => "rwp";
+has distfile    => is => "ro";
 
 =head2 tar
 
@@ -63,7 +67,9 @@ The local (host) path to the downloaded tarball.
 
 =cut
 
-has tar         => is => "rwp";
+has tar         => is => "lazy";
+
+sub _build_tar { $_[0]->config->dist . "/" . $_[0]->distfile }
 
 =head1 METHODS
 
@@ -129,19 +135,6 @@ This is the constructor. The hashref of attributes is usually created by
 the L</resolve> method.
 
 =cut
-
-my $Ext = qr/\.tar(?:\.gz|\.bz2|\.xz)|\.t(?:gz|bz|xz)|\.zip$/;
-
-sub BUILD {
-    my ($self) = @_;
-    
-    my $conf    = $self->config;
-    my $dist    = $self->distfile;
-
-    (my $name = basename $dist) =~ s/$Ext//;
-
-    $self->_set(name => $name, tar => $conf->dist . "/$dist");
-}
 
 =head2 make_tar_dir
 

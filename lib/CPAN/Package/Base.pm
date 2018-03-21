@@ -57,25 +57,6 @@ sub BUILDARGS {
     };
 }
 
-=head2 _set
-
-    $obj->_set(attr => $value);
-
-Objects should use C<_set> to set attributes, rather than accessing the
-internal hashref directly. C<_set> returns the object it was called on,
-for chaining.
-
-=cut
-
-sub _set {
-    my ($self, @atts) = @_;
-    while (my ($k, $v) = splice @atts, 0, 2) {
-        my $s = "_set_$k";
-        $self->$s($v);
-    }
-    return $self;
-}
-
 =head2 config
 
     my $conf    = $obj->config;

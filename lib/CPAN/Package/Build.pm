@@ -215,7 +215,7 @@ sub read_meta {
         $self->say(3, "Reading metadata from $_");
         my $meta = CPAN::Meta->load_file($_)
             or return;
-        $self->_set(meta => $meta);
+        $self->_set_meta($meta);
         return $meta;
     }
     return;
@@ -391,7 +391,7 @@ sub unpack_dist {
     }
 
     mkdir $work;
-    $self->_set(wrkdir => $wrkdir);
+    $self->_set_wrkdir($wrkdir);
 
     $self->say(1, "Unpacking $dist");
 
@@ -406,7 +406,7 @@ sub unpack_dist {
         and $conf->throw("Unpack", 
             "does not unpack into a single directory");
 
-    $self->_set(wrksrc => $wrksrc);
+    $self->_set_wrksrc($wrksrc);
 
     my $patch = abs_path $conf->patches . "/$dist.patch";
     if (-f $patch) {
@@ -417,7 +417,7 @@ sub unpack_dist {
 
     my $dest    = "$wrkdir/tmproot";
     mkdir $jail->hpath($dest);
-    $self->_set(destdir => $dest);
+    $self->_set_destdir($dest);
     
     return $self;
 }
@@ -475,7 +475,7 @@ sub configure_dist {
 
         -f $jail->hpath("$work/Build")
             or $conf->throw("Skip", "No Build created");
-        $self->_set(make => "./Build");
+        $self->_set_make("./Build");
     }
     elsif (-f $jail->hpath("$work/Makefile.PL")) {
         $jail->injail($work, $perl, "Makefile.PL", 
@@ -489,7 +489,7 @@ sub configure_dist {
 
         -f $jail->hpath("$work/Makefile")
             or $conf->throw("Skip", "No Makefile created");
-        $self->_set(make => $Config{make});
+        $self->_set_make($Config{make});
     }
     else {
         $conf->throw("Skip", "don't know how to configure $dist");

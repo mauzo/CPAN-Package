@@ -42,12 +42,6 @@ and building the modules specified on the command line.
 
 These all have read-only accessors. Some are modified by other methods.
 
-=cut
-
-# we have to override the config attribute to make it rwp
-
-has config  => is => "rwp";
-
 =head2 dist
 
 =head2 build
@@ -59,8 +53,8 @@ L</build_some_dists>.
 
 =cut
 
-has dist    => is  => "rwp";
-has build   => is  => "rwp";
+has dist    => is  => "rwp", clearer => 1;
+has build   => is  => "rwp", clearer => 1;
 
 =head2 jail
 
@@ -68,15 +62,7 @@ The L<Jail|CPAN::Package::Jail> we are working with.
 
 =cut
 
-has jail    => is => "rwp";
-
-=head2 log
-
-The logfile we are writing to.
-
-=cut
-
-has log     => is => "rwp";
+has jail    => is => "ro";
 
 =head2 mod
 
@@ -95,15 +81,6 @@ L</push_mods> and L</pop_mod> methods.
 =cut
 
 has mods    => is => "rwp";
-
-=head2 verbose
-
-The verbosity passed on the command-line. This will be augmented by the
-verbosity in the config file.
-
-=cut
-
-has verbose => is => "rwp";
 
 =head1 METHODS
 
@@ -143,22 +120,14 @@ sub BUILDARGS {
     # reverse so we pop them off in the right order
     $opts{mods} = [reverse @argv];
 
-    \%opts;
-}
+    my $yaml    = LoadFile $opts{config};
 
-sub BUILD {
-    my ($self) = @_;
-
-    my $conf    = $self->config;
-    my $yaml    = LoadFile $conf;
-
-    $yaml->{verbose}        += $self->verbose;
     $yaml->{redirect_stdh}  = 1;
 
-    $self->jail or $self->_set(jail => delete $yaml->{jail});
-    $self->log  and $yaml->{log} = $self->log;
+    $opts{verbose}  and $yaml->{verbose} += delete $opts{verbose};
+    $opts{log}      and $yaml->{log} = delete $opts{log};
     
-    my @su = split " ", $yaml->{su};
+    my @su      = split " ", $yaml->{su};
     $yaml->{su} = sub {
         my ($conf, @cmd) = @_;
         $conf->system(@su, @cmd);
@@ -171,12 +140,15 @@ sub BUILD {
         $yaml->{$_} = $abs;
     }
 
-    $conf       = CPAN::Package->new(%$yaml);
-    $self->_set(config => $conf);
-
-    my $jail    = $self->jail
+    my $jail        = $opts{jail} // $yaml->{jail};
         or die "Must specify a jail!\n";
-    $self->_set(jail => $conf->find(Jail => $jail));
+    delete $yaml->{jail};
+
+    my $conf        = CPAN::Package->new($yaml);
+    $opts{config}   = $conf;
+    $opts{jail}     = $conf->find(Jail => $jail);
+
+    \%opts;
 }
 
 =head2 tried
@@ -250,8 +222,9 @@ the C<dist> and C<build> attributes.
 sub pop_mod {
     my ($self) = @_;
     my $mod = pop @{ $self->mods };
-    $self->_set(mod => $mod);
-    $self->_set($_ => undef) for qw/dist build/;
+    $self->_set_mod($mod);
+    $self->clear_dist;
+    $self->clear_build;
     $mod;
 }
 
@@ -322,7 +295,7 @@ sub build_one_dist {
     $dist->fetch;
 
     my $build = $self->config->find(Build => $jail, $dist);
-    $self->_set(build => $build);
+    $self->_set_build($build);
     $build->unpack_dist;
     $build->read_meta("META");
     $self->check_already_registered;
@@ -399,7 +372,7 @@ sub build_some_dists {
 
             my $dist        = $conf->resolve_dist($mod);
             my $distname    = $dist->name;
-            $self->_set(dist => $dist);
+            $self->_set_dist($dist);
 
             $self->dist_tried($dist->distfile)
                 and $conf->throw("Skip", "Already tried $distname");
