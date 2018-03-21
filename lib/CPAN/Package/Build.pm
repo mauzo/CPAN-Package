@@ -345,6 +345,24 @@ sub satisfy_reqs {
     return map $$_{module}, @{$$req{needed}};
 }
 
+=head2 deps_for_pkg
+
+    my @deps = $build->deps_for_pkg;
+
+Returns a list of hashrefs representing the runtime deps of the package
+we are building. If there are unsatisfied deps it will throw a Needed
+exception.
+
+=cut
+
+has deps_for_pkg => is => "lazy";
+
+sub _build_deps_for_pkg {
+    my ($self) = @_;
+
+    my $req = $self->needed("install");
+}
+
 =head2 unpack_dist
 
     $build->unpack_dist;

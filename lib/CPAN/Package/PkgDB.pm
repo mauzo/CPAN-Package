@@ -33,7 +33,7 @@ extends "CPAN::Package::Base";
 # echo -n CPAN::Package | cksum
 # SQLite claims this is 32bit, but it's actually 31bit...
 my $APPID   = 323737960;
-my $DBVER   = 1;
+my $DBVER   = 2;
 
 =head1 ATTRIBUTES
 
@@ -133,10 +133,13 @@ sub check_db_ver {
     }
     
     my $dbver = $self->_select("pragma user_version");
-    $dbver == $DBVER
-        or croak "$dbname is the wrong version ($dbver vs $DBVER)";
+    $dbver == $DBVER and return 1;
 
-    return 1;
+    if (my $upgrade = $self->can("upgrade_$dbver")) {
+        return $self->$upgrade;
+    }
+
+    croak "$dbname is the wrong version ($dbver vs $DBVER)";
 }
 
 sub _create_tables {
@@ -152,6 +155,11 @@ create table dist (
     version varchar     not null,
     type    varchar     not null,
     unique (name, version)
+);
+create table dist_depends (
+    dist    integer     not null references dist,
+    dep     integer     not null references dist,
+    primary key (dist, dep)
 );
 create table module (
     id      integer     primary key,
@@ -310,11 +318,12 @@ version) twice. Attempting to do so will throw an exception.
 =cut
 
 sub register_build {
-    my ($self, $build, $deps) = @_;
+    my ($self, $build) = @_;
 
     my $name    = $build->name;
     my $version = $build->version;
     my $mods    = $build->provides;
+    my $deps    = $build->needed("install");
 
     my $dbh = $self->dbh;
     $dbh->begin_work;
@@ -328,6 +337,16 @@ SQL
             undef, $name, $version,
         );
         my $distid = $dbh->selectrow_array("select last_insert_rowid()");
+
+        for (@{$$deps{pkg}}) {
+            $dbh->do(<<SQL,
+                insert into dist_depends (dist, dep)
+                select ?, id from dist
+                where name = ?
+SQL
+                undef, $distid, $$_{dist},
+            );
+        }
 
         $self->say(3, "$name-$version provides:");
 

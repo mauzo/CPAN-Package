@@ -302,7 +302,7 @@ sub _write_manifest {
     my $maint   = $self->config("builtby");
     my $prefix  = $self->prefix;
 
-    my $deps    = join "", uniq sort map <<DEP
+    my $deps    = join "", uniq sort map <<DEP,
         $$_{name}: { version: "$$_{version}", origin: "$$_{origin}" }
 DEP
         @deps;
