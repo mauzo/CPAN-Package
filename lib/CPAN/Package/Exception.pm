@@ -28,7 +28,7 @@ use overload
 
 use Carp ();
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

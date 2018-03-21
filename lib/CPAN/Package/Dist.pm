@@ -29,7 +29,7 @@ use Class::Load         qw/load_class/;
 use File::Basename      qw/dirname basename/;
 use File::Path          qw/make_path/;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

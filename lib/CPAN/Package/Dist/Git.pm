@@ -5,7 +5,7 @@ use warnings;
 
 use Capture::Tiny   qw/capture_stdout/;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Dist";
 

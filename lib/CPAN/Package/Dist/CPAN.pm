@@ -7,7 +7,7 @@ use Encode              qw/decode/;
 use File::Basename      qw/basename/;
 use Parse::CPAN::Meta;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Dist";
 

@@ -31,7 +31,7 @@ use File::Path      qw/make_path/;
 use File::Slurp     qw/read_dir write_file/;
 use Data::Dump qw/pp/;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

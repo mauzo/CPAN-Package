@@ -40,7 +40,7 @@ use File::Spec::Functions   qw/devnull/;
 use HTTP::Tiny;
 use Scalar::Util    qw/blessed/;
 
-use Moo;
+use Moose;
 
 =head1 ATTRIBUTES
 

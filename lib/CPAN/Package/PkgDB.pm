@@ -26,7 +26,7 @@ use Carp;
 use DBI;
 use Try::Tiny;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

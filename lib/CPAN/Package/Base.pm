@@ -6,7 +6,7 @@ CPAN::Package::Base - Base class for CPAN::Package classes
 
 =head1 SYNOPSIS
 
-    use Moo;
+    use Moose;
     extends "CPAN::Package::Base";
 
     sub BUILD {...}
@@ -21,7 +21,7 @@ use 5.010;
 use warnings;
 use strict;
 
-use Moo;
+use Moose;
 
 has _config => (
    is       => "ro",
@@ -35,7 +35,7 @@ has _config => (
 
     $class->new($config, @args);
 
-C<new> is the constructor. It is created by L<Moo>, so it calls
+C<new> is the constructor. It is created by L<Moose>, so it calls
 C<BUILDARGS> to convert its arguments into a hashref of attributes, then
 calls C<BUILD> after the object has been constructed.
 

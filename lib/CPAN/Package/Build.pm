@@ -39,7 +39,7 @@ use List::Util              qw/first/;
 use Makefile::Parser;
 use Module::Metadata;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

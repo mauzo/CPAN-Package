@@ -33,7 +33,7 @@ use File::Slurp             qw/write_file/;
 use File::Spec::Functions   qw/abs2rel/;
 use List::MoreUtils         qw/uniq/;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 

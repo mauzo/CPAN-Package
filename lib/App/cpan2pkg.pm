@@ -28,7 +28,7 @@ use List::Util      qw/first/;
 use Try::Tiny;
 use YAML::XS        qw/LoadFile/;
 
-use Moo;
+use Moose;
 
 extends "CPAN::Package::Base";
 
