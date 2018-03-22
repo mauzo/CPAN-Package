@@ -311,7 +311,7 @@ sub config {
 
     my $c = $self->_config;
 
-    while (@keys) {
+    for (@keys) {
         $c or return;
         $c = $c->{$_};
     }
