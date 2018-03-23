@@ -4,44 +4,9 @@ use strict;
 use warnings;
 use lib "tlib";
 
-use Test::More;
+use t::All;
 
-use t::CPAN::Package;
-
-use Cwd         qw/abs_path/;
-use Data::Dump  qw/pp/;
-use File::Path  qw/make_path remove_tree/;
-use File::Slurp qw/read_file/;
-
-my $TMP = abs_path "ttmp";
-
-sub setup_ttmp {
-    remove_tree $TMP;
-    make_path map "$TMP/$_", qw(
-        pkg pkgdb jail/cpan2pkg/pkg jail/cpan2pkg/repos
-    );
-}
-
-my $MY = "$TMP/jail/cpan2pkg";
-
-my $perlver = ($^V =~ s/^v//r);
-my %perlV = (
-    version         => ($^V =~ s/^v//r),
-    installbin      => "/usr/local/bin",
-    installsitebin  => "/usr/local/bin",
-);
-
-my $CP = t::CPAN::Package->new(
-    packages    => "$TMP/pkg",
-    pkgdb       => "$TMP/pkgdb",
-    su          => sub { $_[0]->system("SU", @_[1..$#_]) },
-    t_output    => [
-        [qr/^jls .* path$/,             "$TMP/jail\n"               ],
-        [qr!/corelist !,                "Foo 1.01\nBar 2.02\n"      ],
-        map [qr!/perl .*(?<= )-V:$_\b!, "$_='$perlV{$_}';\n"        ],
-            keys %perlV,
-    ],
-) or die "Can't build t::CPAN::Package";
+my $CP = mk_CPAN_Package;
 
 my $J = $CP->find(Jail => "foo");
 
@@ -51,7 +16,7 @@ is $J->running,         0,                  "running";
 
 $CP->t_subst({
     perl    => "/usr/bin/perl",
-    perlver => $perlver,
+    perlver => $PERLVER,
     top     => $TMP,
     my      => $MY,
     jname   => $J->jname,

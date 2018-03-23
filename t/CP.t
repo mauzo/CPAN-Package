@@ -109,9 +109,9 @@ open my $MSGH, ">>", \my $msgh;
     ok $C->su(0, "foo"),                                "su, exit 0";
     is_deeply \@System, [["foo"]],                      "su, args";
 
-    my $o = $C->find("t", "foo");
-    isa_ok $o,              "CPAN::Package::t",         "find";
-    ok exists $INC{"CPAN/Package/t.pm"},                "find, load";
+    my $o = $C->find("t::Sub", "foo");
+    isa_ok $o,              "CPAN::Package::t::Sub",    "find";
+    ok exists $INC{"CPAN/Package/t/Sub.pm"},            "find, load";
     is $o->[0],             $C,                         "find, config";
     is $o->[1],             "foo",                      "find, args";
 
