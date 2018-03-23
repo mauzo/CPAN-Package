@@ -24,6 +24,8 @@ use strict;
 use Capture::Tiny   qw/capture_stdout/;
 use Carp;
 use DBI;
+use File::Basename  ();
+use File::Path      ();
 use Try::Tiny;
 
 use Moo;
@@ -61,7 +63,7 @@ The L<Jail|CPAN::Package::Jail> this is the database for.
 
 =cut
 
-has jail    => is => "ro";
+has jail    => is => "ro", weak_ref => 1;
 
 =head1 METHODS
 
@@ -95,6 +97,9 @@ sub BUILD {
     my ($self) = @_;
 
     my $dbname  = $self->dbname; 
+
+    File::Path::mkpath(File::Basename::dirname($dbname));
+
     my $dbh     = DBI->connect(
         "dbi:SQLite:$dbname", undef, undef, { 
             PrintError  => 0,
@@ -177,7 +182,8 @@ sub _register_core {
     my $dbh     = $self->dbh;
     my $jail    = $self->jail;
 
-    $jail->running or $jail->start;
+    $jail->running or $self->config->throw(Error =>
+        sprintf "Jail %s is not running", $jail->name);
 
     my ($perlver, $bindir) = $jail->perl_V("version", "installbin")
         or croak "Can't get perl version from jail.\n";

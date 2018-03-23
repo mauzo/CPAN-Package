@@ -73,7 +73,7 @@ The jail this PkgTool is for.
 
 =cut
 
-has jail    => is => "ro";
+has jail    => is => "ro", weak_ref => 1;
 
 =head2 perlpkg
 

@@ -66,10 +66,7 @@ A L<PkgTool|CPAN::Package::PkgTool> for this jail.
 
 has pkgtool => (
     is      => "lazy",
-    builder => sub {
-        warn "CONFIG: " . pp $_[0]->config;
-        $_[0]->config->find(PkgTool => $_[0]);
-    },
+    builder => sub { $_[0]->config->find(PkgTool => $_[0]) },
 );
 
 =head2 pkgdb
@@ -190,7 +187,7 @@ sub BUILDARGS {
     my $set     = $conf->{set};
     my $pname   = $conf->{pname} // $name;
 
-    my $att = {
+    return {
         config  => $config,
         name    => $name,
         jname   => "$pname-default" . ($set ? "-$set" : ""),
@@ -198,8 +195,6 @@ sub BUILDARGS {
         running => 0,
         _pset    => $set,
     };
-    warn "Jail::BUILDARGS: " . pp $att;
-    $att;
 }
 
 =head2 su
@@ -322,6 +317,11 @@ sub start {
     my $pname   = $self->_pname;
     my $set     = $self->_pset;
 
+    if ($self->running) {
+        $self->say(3, "Jail $name already running");
+        return;
+    }
+
     $self->say(1, "Starting jail $name");
 
     $self->su( "poudriere", "jail", "-s",
@@ -330,7 +330,10 @@ sub start {
     );
     $self->_set(running => 1);
 
-    chomp(my $root = qx/jls -j $jname path/);
+    my $root = capture_stdout {
+        $config->system("jls", "-j", $jname, "path");
+    };
+    chomp $root;
     $self->_set(root => $root);
 
     $self->mount_tmpfs($self->hpath(""));

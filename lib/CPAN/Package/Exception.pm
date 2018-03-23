@@ -23,8 +23,8 @@ use warnings;
 use strict;
 
 use overload 
-    q/""/   => "_str",   
-    fallback => 1;
+    q/""/       => sub { $_[0]->_str },
+    fallback    => 1;
 
 use Carp ();
 
